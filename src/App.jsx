@@ -430,6 +430,7 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
   );
 }
 // --- MODE SOLO ---
+// --- MODE SOLO (KOLOM KANAN LEBIH RAMPING) ---
 function PlaySolo({ gamePackage, onBack }) {
   const [generatedData, setGeneratedData] = useState(null);
   const [revealedWords, setRevealedWords] = useState([]);
@@ -488,42 +489,44 @@ function PlaySolo({ gamePackage, onBack }) {
 
   return (
     <div className="flex flex-col h-[88vh]">
-      <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border-4 border-[#E0F2FE]">
-        <button onClick={onBack} className="p-3 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-500"><ArrowLeft className="w-6 h-6"/></button>
-        <div className="text-center font-black text-2xl text-[#38BDF8] drop-shadow-sm">MODE SOLO</div>
-        <button onClick={() => setRevealedWords(generatedData.placedWords.map(w => w.word))} className="bg-[#FEF08A] text-[#854D0E] px-4 py-3 rounded-xl font-black shadow-[0_4px_0_0_#EAB308] active:translate-y-1 active:shadow-none">Buka Semua</button>
+      <div className="flex justify-between items-center mb-4 bg-white p-4 rounded-2xl shadow-sm border-4 border-[#E0F2FE]">
+        <button onClick={onBack} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-500"><ArrowLeft className="w-5 h-5"/></button>
+        <div className="text-center font-black text-xl md:text-2xl text-[#38BDF8] drop-shadow-sm">MODE SOLO</div>
+        <button onClick={() => setRevealedWords(generatedData.placedWords.map(w => w.word))} className="bg-[#FEF08A] text-[#854D0E] px-3 py-2 rounded-xl font-black shadow-[0_4px_0_0_#EAB308] active:translate-y-1 active:shadow-none text-sm md:text-base">Buka Semua</button>
       </div>
       
-      <div className="flex-grow flex flex-col lg:flex-row gap-6 overflow-hidden">
-        <div className="lg:w-2/3 bg-white rounded-[2rem] border-4 border-[#FCE7F3] p-6 flex items-center justify-center overflow-auto relative shadow-inner">
+      <div className="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden">
+        {/* FIX: Menggunakan flex-1 agar papan bebas menyesuaikan ruang */}
+        <div className="flex-1 bg-white rounded-[2rem] border-4 border-[#FCE7F3] flex items-center justify-center relative shadow-inner overflow-hidden p-2">
           {isComplete && <div className="absolute inset-0 bg-white/90 z-30 flex flex-col items-center justify-center backdrop-blur-md animate-fade-in"><Trophy className="w-32 h-32 text-yellow-400 mb-6 drop-shadow-lg" /><h2 className="text-5xl font-black text-[#F472B6] tracking-tight">KAMU HEBAT!</h2></div>}
           <BoardUI gridSize={gamePackage.gridSize} generatedData={generatedData} revealedWords={revealedWords} activeWord={activeWord} activeCell={activeCell} userAnswers={userAnswers} onCellClick={handleCellClick} interactive={true} />
         </div>
         
-        <div className="lg:w-1/3 bg-white rounded-[2rem] border-4 border-[#E0F2FE] flex flex-col overflow-hidden shadow-sm">
+        {/* FIX: Kolom petunjuk diubah lebarnya menjadi fix 320px (Sangat Ramping) */}
+        <div className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border-4 border-[#E0F2FE] flex flex-col overflow-hidden shadow-sm">
           {activeWord ? (
-            <div className="p-8 bg-[#38BDF8] text-white border-b-4 border-[#0284C7] shadow-md z-10 animate-fade-in">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-sm font-black bg-[#FEF08A] text-[#854D0E] px-4 py-2 rounded-xl shadow-sm">{activeWord.isHorizontal ? 'MENDATAR' : 'MENURUN'} - {activeWord.number}</span>
-                <button onClick={() => {setActiveWord(null); setActiveCell(null);}} className="bg-white/20 p-2 rounded-xl hover:bg-white/40"><XCircle className="w-6 h-6"/></button>
+            <div className="p-4 md:p-5 bg-[#38BDF8] text-white border-b-4 border-[#0284C7] shadow-md z-10 animate-fade-in">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-[10px] sm:text-xs font-black bg-[#FEF08A] text-[#854D0E] px-3 py-1.5 rounded-xl shadow-sm">{activeWord.isHorizontal ? 'MENDATAR' : 'MENURUN'} - {activeWord.number}</span>
+                <button onClick={() => {setActiveWord(null); setActiveCell(null);}} className="bg-white/20 p-1.5 rounded-xl hover:bg-white/40"><XCircle className="w-5 h-5"/></button>
               </div>
-              <p className="text-2xl font-black mb-8 leading-tight drop-shadow-md">{activeWord.clue}</p>
-              <button onClick={checkCurrentWord} className="w-full bg-[#A7F3D0] text-[#065F46] py-4 rounded-2xl font-black text-xl shadow-[0_5px_0_0_#059669] active:translate-y-1 active:shadow-none">CEK JAWABAN (Enter)</button>
+              <p className="text-base md:text-lg font-black mb-4 leading-tight drop-shadow-md">{activeWord.clue}</p>
+              <button onClick={checkCurrentWord} className="w-full bg-[#A7F3D0] text-[#065F46] py-3 rounded-2xl font-black text-sm shadow-[0_4px_0_0_#059669] active:translate-y-1 active:shadow-none">CEK JAWABAN</button>
             </div>
-          ) : <div className="p-10 bg-slate-50 border-b-4 border-slate-200 text-center flex flex-col items-center justify-center"><div className="w-16 h-16 bg-[#FBCFE8] rounded-[2rem] flex items-center justify-center mb-4 shadow-sm"><Play className="w-8 h-8 text-[#F472B6]"/></div><p className="text-slate-500 font-bold text-lg">Klik kotak di papan untuk mulai menjawab.</p></div>}
+          ) : <div className="p-6 bg-slate-50 border-b-4 border-slate-200 text-center flex flex-col items-center justify-center"><div className="w-12 h-12 bg-[#FBCFE8] rounded-[1.5rem] flex items-center justify-center mb-3 shadow-sm"><Play className="w-6 h-6 text-[#F472B6]"/></div><p className="text-slate-500 font-bold text-sm">Klik kotak di papan untuk menjawab.</p></div>}
           
-          <div className="flex-grow overflow-y-auto p-6 flex flex-col gap-8 bg-white">
+          <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-6 bg-white custom-scrollbar">
             {['Mendatar', 'Menurun'].map((dir, i) => (
               <div key={dir}>
-                <h3 className="font-black text-[#94A3B8] mb-4 border-b-4 border-slate-100 pb-2 text-xl">{dir}</h3>
-                <ul className="space-y-3">
+                <h3 className="font-black text-[#94A3B8] mb-3 border-b-4 border-slate-100 pb-1 text-sm uppercase">{dir}</h3>
+                <ul className="space-y-2">
                   {generatedData.placedWords.filter(w => (i === 0 ? w.isHorizontal : !w.isHorizontal)).sort((a,b) => a.number - b.number).map(w => {
                     const isRevealed = revealedWords.includes(w.word);
                     const isActive = activeWord?.word === w.word;
                     return (
-                    <li key={w.number} onClick={() => {setActiveWord(w); setActiveCell({x: w.x, y: w.y});}} className={`p-4 rounded-2xl cursor-pointer transition-all duration-200 border-4 ${isRevealed ? 'border-[#BBF7D0] bg-[#F0FDF4] opacity-60' : isActive ? 'border-[#38BDF8] bg-[#E0F2FE] scale-[1.02] shadow-md' : 'border-slate-100 bg-white hover:border-[#BAE6FD]'}`}>
-                      <span className={`font-black text-xl mr-3 ${isActive ? 'text-[#0284C7]' : 'text-slate-400'}`}>{w.number}.</span> 
-                      {isRevealed ? <span className="font-black tracking-widest text-[#16A34A] uppercase text-lg">{w.word}</span> : <span className="font-bold text-slate-600 text-lg">{w.clue}</span>}
+                    <li key={w.number} onClick={() => {setActiveWord(w); setActiveCell({x: w.x, y: w.y});}} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 border-4 ${isRevealed ? 'border-[#BBF7D0] bg-[#F0FDF4] opacity-60' : isActive ? 'border-[#38BDF8] bg-[#E0F2FE] scale-[1.02] shadow-md' : 'border-slate-100 bg-white hover:border-[#BAE6FD]'}`}>
+                      <span className={`font-black text-sm mr-2 ${isActive ? 'text-[#0284C7]' : 'text-slate-400'}`}>{w.number}.</span> 
+                      {isRevealed ? <span className="font-black tracking-widest text-[#16A34A] uppercase text-sm">{w.word}</span> : <span className="font-bold text-slate-600 text-sm">{w.clue}</span>}
                     </li>
                   )})}
                 </ul>
@@ -572,6 +575,7 @@ function HostLobby({ gamePackage, user, db, onStart, onCancel }) {
   );
 }
 
+// --- LAYAR GURU (MULTIPLAYER KLASEMEN LEBIH RAMPING) ---
 function HostPlay({ sessionPin, db, onEnd }) {
   const [sessionData, setSessionData] = useState(null);
 
@@ -589,24 +593,25 @@ function HostPlay({ sessionPin, db, onEnd }) {
 
   return (
     <div className="flex flex-col h-[88vh]">
-      <div className="flex justify-between items-center mb-6 bg-white p-5 rounded-[2rem] shadow-sm border-4 border-[#E0F2FE]">
+      <div className="flex justify-between items-center mb-4 bg-white p-4 md:p-5 rounded-[2rem] shadow-sm border-4 border-[#E0F2FE]">
         <div>
-          <h2 className="text-3xl font-black text-slate-800">{sessionData.title} <span className="bg-[#F43F5E] text-white text-sm px-3 py-1 rounded-xl ml-3 animate-pulse">LIVE</span></h2>
-          <p className="text-slate-500 font-bold mt-1 text-lg">PIN Masuk: <span className="font-black text-[#38BDF8] text-2xl ml-2">{sessionPin}</span></p>
+          <h2 className="text-xl md:text-3xl font-black text-slate-800">{sessionData.title} <span className="bg-[#F43F5E] text-white text-xs px-2 py-1 rounded-xl ml-2 animate-pulse">LIVE</span></h2>
+          <p className="text-slate-500 font-bold mt-1 text-sm md:text-lg">PIN Masuk: <span className="font-black text-[#38BDF8] text-lg md:text-2xl ml-2">{sessionPin}</span></p>
         </div>
-        <button onClick={async () => { if(window.confirm('Tutup ruangan?')) { await deleteDoc(doc(db, 'tts_sessions', sessionPin)); onEnd(); } }} className="bg-[#FECDD3] text-[#BE123C] px-6 py-4 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#F43F5E] active:translate-y-1 active:shadow-none">Tutup Room</button>
+        <button onClick={async () => { if(window.confirm('Tutup ruangan?')) { await deleteDoc(doc(db, 'tts_sessions', sessionPin)); onEnd(); } }} className="bg-[#FECDD3] text-[#BE123C] px-4 md:px-6 py-3 rounded-2xl font-black text-sm md:text-lg shadow-[0_4px_0_0_#F43F5E] active:translate-y-1 active:shadow-none">Tutup Room</button>
       </div>
 
-      <div className="flex-grow flex flex-col lg:flex-row gap-6 overflow-hidden">
-        <div className="lg:w-3/4 bg-white border-4 border-[#FCE7F3] rounded-[2rem] p-6 flex items-center justify-center overflow-auto relative">
+      <div className="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden">
+        {/* FIX: flex-1 untuk papan Guru */}
+        <div className="flex-1 bg-white border-4 border-[#FCE7F3] rounded-[2rem] p-2 md:p-4 flex items-center justify-center overflow-hidden relative shadow-inner">
           {isComplete && (
-            <div className="absolute inset-0 bg-white/90 z-20 flex flex-col items-center justify-center backdrop-blur-sm animate-fade-in">
-              <Trophy className="w-40 h-40 text-yellow-400 mb-6 drop-shadow-xl" />
-              <h2 className="text-6xl font-black text-[#F472B6] tracking-widest">SELESAI!</h2>
+            <div className="absolute inset-0 bg-white/90 z-30 flex flex-col items-center justify-center backdrop-blur-sm animate-fade-in">
+              <Trophy className="w-32 h-32 md:w-40 md:h-40 text-yellow-400 mb-6 drop-shadow-xl" />
+              <h2 className="text-4xl md:text-6xl font-black text-[#F472B6] tracking-widest">SELESAI!</h2>
               {teams.length > 0 && (
-                <div className="mt-8 text-center bg-[#FEF08A] p-8 rounded-[2rem] border-4 border-[#EAB308] shadow-lg">
-                  <p className="text-2xl font-bold text-[#854D0E] mb-2">Juara 1</p>
-                  <p className="text-5xl font-black text-[#713F12]">{teams[0].name} <span className="text-3xl">({teams[0].score} Poin)</span></p>
+                <div className="mt-8 text-center bg-[#FEF08A] p-6 md:p-8 rounded-[2rem] border-4 border-[#EAB308] shadow-lg">
+                  <p className="text-xl md:text-2xl font-bold text-[#854D0E] mb-2">Juara 1</p>
+                  <p className="text-3xl md:text-5xl font-black text-[#713F12]">{teams[0].name} <span className="text-xl md:text-3xl">({teams[0].score} Poin)</span></p>
                 </div>
               )}
             </div>
@@ -614,20 +619,21 @@ function HostPlay({ sessionPin, db, onEnd }) {
           <BoardUI gridSize={sessionData.gridSize} generatedData={sessionData.generatedData} revealedWords={sessionData.revealedWords} interactive={false} />
         </div>
         
-        <div className="lg:w-1/4 bg-white rounded-[2rem] border-4 border-[#BBF7D0] flex flex-col overflow-hidden">
-          <div className="bg-[#34D399] text-white p-6 text-center border-b-4 border-[#10B981]">
-            <h3 className="font-black text-2xl flex items-center justify-center gap-2"><Trophy className="w-8 h-8"/> Klasemen</h3>
+        {/* FIX: Lebar Klasemen dipatok 320px (Sangat Ramping) */}
+        <div className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border-4 border-[#BBF7D0] flex flex-col overflow-hidden shadow-sm">
+          <div className="bg-[#34D399] text-white p-4 md:p-5 text-center border-b-4 border-[#10B981]">
+            <h3 className="font-black text-xl flex items-center justify-center gap-2"><Trophy className="w-6 h-6"/> Klasemen</h3>
           </div>
-          <div className="flex-grow overflow-y-auto p-4 bg-[#F0FDF4]">
-            {teams.length === 0 ? <p className="text-center text-[#059669] mt-10 font-bold text-lg">Menunggu siswa...</p> : (
-              <ul className="space-y-4">
+          <div className="flex-grow overflow-y-auto p-4 bg-[#F0FDF4] custom-scrollbar">
+            {teams.length === 0 ? <p className="text-center text-[#059669] mt-10 font-bold text-sm md:text-base">Menunggu siswa...</p> : (
+              <ul className="space-y-3">
                 {teams.map((t, i) => (
-                  <li key={t.name} className="bg-white p-4 rounded-2xl shadow-sm border-4 border-[#D1FAE5] flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <span className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg ${i === 0 ? 'bg-[#FEF08A] text-[#854D0E]' : 'bg-slate-100 text-slate-500'}`}>{i+1}</span>
-                      <span className="font-black text-xl text-slate-700 truncate max-w-[120px]">{t.name}</span>
+                  <li key={t.name} className="bg-white p-3 rounded-2xl shadow-sm border-4 border-[#D1FAE5] flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm ${i === 0 ? 'bg-[#FEF08A] text-[#854D0E]' : 'bg-slate-100 text-slate-500'}`}>{i+1}</span>
+                      <span className="font-black text-sm md:text-base text-slate-700 truncate max-w-[120px]">{t.name}</span>
                     </div>
-                    <span className="font-black text-2xl text-[#059669]">{t.score}</span>
+                    <span className="font-black text-lg md:text-xl text-[#059669]">{t.score}</span>
                   </li>
                 ))}
               </ul>
