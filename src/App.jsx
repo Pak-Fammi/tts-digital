@@ -373,7 +373,7 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
 }
 
 // --- BOARD UI (DIJAMIN PERSEGI & PAS 1 LAYAR) ---
-// --- BOARD UI (DIJAMIN BESAR & KOTAK PERSEGI SEMPURNA) ---
+// --- BOARD UI (DIJAMIN ANTI TERPOTONG ATAS) ---
 function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, interactive = false, activeWord = null, activeCell = null, userAnswers = {} }) {
   let grid = generatedData?.grid;
   if (!grid && generatedData?.gridString) grid = JSON.parse(generatedData.gridString);
@@ -382,11 +382,11 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
   if (!grid || grid.length === 0) return <div className="text-center p-10 font-black text-slate-400">Papan gagal dibuat. Pastikan kata-katanya bisa bersilangan!</div>;
 
   return (
-    // FIX: Tambahkan overflow-auto sebagai pengaman jika layar di HP sangat pendek
-    <div className="w-full h-full flex items-center justify-center p-2 md:p-4 overflow-auto custom-scrollbar">
+    // FIX: Menghapus "flex items-center justify-center". 
+    // Menggunakan block layout agar papan melebar ke bawah dan atasnya tidak pernah terpotong.
+    <div className="w-full h-full overflow-auto custom-scrollbar p-2 md:p-4">
       
-      {/* FIX: Wadah diberi w-full dan max-width agar merentang besar tapi terkendali */}
-      <div className="w-full max-w-[85vw] md:max-w-[550px] lg:max-w-[650px] bg-[#E0F2FE] border-4 border-[#7DD3FC] p-3 md:p-5 rounded-2xl md:rounded-[2rem] shadow-[6px_6px_0px_0px_#7DD3FC] mx-auto" 
+      <div className="mx-auto w-full max-w-[85vw] md:max-w-[550px] lg:max-w-[650px] bg-[#E0F2FE] border-4 border-[#7DD3FC] p-3 md:p-5 rounded-2xl md:rounded-[2rem] shadow-[6px_6px_0px_0px_#7DD3FC]" 
            style={{ 
              display: 'grid', 
              gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
@@ -411,7 +411,6 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
             return (
               <div 
                 key={`${x}-${y}`} 
-                // FIX: Pemaksa persegi (aspect-square) HANYA diletakkan pada kotaknya
                 className={`relative flex items-center justify-center font-black text-sm sm:text-base md:text-xl lg:text-2xl select-none transition-all duration-150 w-full aspect-square rounded-sm md:rounded-md
                   ${isBlack ? 'bg-transparent' : 'bg-white border-[1.5px] sm:border-2 md:border-[3px] border-slate-200 shadow-sm text-slate-700'} 
                   ${!isBlack && interactive ? 'cursor-pointer hover:bg-sky-50 hover:scale-110 hover:z-10' : ''}
@@ -431,7 +430,6 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
     </div>
   );
 }
-// --- MODE SOLO ---
 // --- MODE SOLO (KOLOM KANAN LEBIH RAMPING) ---
 function PlaySolo({ gamePackage, onBack }) {
   const [generatedData, setGeneratedData] = useState(null);
