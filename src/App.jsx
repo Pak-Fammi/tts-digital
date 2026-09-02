@@ -373,7 +373,7 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
 }
 
 // --- BOARD UI (DIPERBESAR & TEMA KARTUN PASTEL) ---
-// --- BOARD UI (DIJAMIN ANTI-DEMPET & BISA DI-SCROLL) ---
+// --- BOARD UI (SATU LAYAR, ANTI-SCROLL, RESPONSIF) ---
 function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, interactive = false, activeWord = null, activeCell = null, userAnswers = {} }) {
   let grid = generatedData?.grid;
   if (!grid && generatedData?.gridString) grid = JSON.parse(generatedData.gridString);
@@ -382,14 +382,14 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
   if (!grid || grid.length === 0) return <div className="text-center p-10 font-black text-slate-400">Papan gagal dibuat. Pastikan kata-katanya bisa bersilangan!</div>;
 
   return (
-    <div className="w-full max-w-full overflow-auto p-2 md:p-4 custom-scrollbar">
-      {/* FIX: Wadah diberi w-fit dan mx-auto agar aman saat di-scroll tanpa remasan layar */}
-      <div className="mx-auto w-fit bg-[#E0F2FE] border-4 border-[#7DD3FC] p-3 md:p-6 rounded-[2rem] shadow-[8px_8px_0px_0px_#7DD3FC]" 
+    <div className="w-full h-full flex items-center justify-center p-2">
+      {/* Wadah papan menggunakan aspect-square agar selalu persegi, max-h-full agar tidak melebihi tinggi layar */}
+      <div className="w-full max-h-full aspect-square bg-[#E0F2FE] border-4 border-[#7DD3FC] p-2 md:p-3 rounded-2xl md:rounded-[2rem] shadow-[6px_6px_0px_0px_#7DD3FC]" 
            style={{ 
              display: 'grid', 
-             // FIX: Gunakan max-content agar grid otomatis menolak untuk dikecilkan
-             gridTemplateColumns: `repeat(${gridSize}, max-content)`, 
-             gap: '5px' 
+             gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+             gridTemplateRows: `repeat(${gridSize}, minmax(0, 1fr))`,
+             gap: gridSize >= 15 ? '2px' : '4px' 
            }}>
         {grid.map((row, y) => row.map((cell, x) => {
             const isBlack = cell === null;
@@ -410,18 +410,17 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
             return (
               <div 
                 key={`${x}-${y}`} 
-                // FIX: Kunci ukuran lebar & tinggi kotak dengan angka pasti (w-9, w-11, dll)
-                className={`relative flex items-center justify-center font-black text-xl md:text-3xl select-none transition-all duration-150
-                  w-9 h-9 sm:w-11 sm:h-11 md:w-14 md:h-14 lg:w-[60px] lg:h-[60px]
-                  ${isBlack ? 'bg-transparent' : 'bg-white border-[3px] border-slate-200 rounded-xl shadow-sm text-slate-700'} 
-                  ${!isBlack && interactive ? 'cursor-pointer hover:bg-sky-50 hover:scale-105 hover:z-10' : ''}
+                // Kotak diubah menjadi w-full h-full agar mengisi ruang grid fraksi tanpa angka pasti
+                className={`relative flex items-center justify-center font-black text-sm md:text-xl lg:text-2xl select-none transition-all duration-150 w-full h-full rounded-md md:rounded-lg
+                  ${isBlack ? 'bg-transparent' : 'bg-white border-2 md:border-[3px] border-slate-200 shadow-sm text-slate-700'} 
+                  ${!isBlack && interactive ? 'cursor-pointer hover:bg-sky-50 hover:scale-110 hover:z-10' : ''}
                   ${isPartOfActiveWord && !isRevealed && !isCellActive ? 'bg-[#BAE6FD] border-[#38BDF8]' : ''}
-                  ${isCellActive ? 'bg-[#FDE047] border-[#EAB308] ring-4 ring-[#FEF08A] z-20 scale-110 shadow-lg text-yellow-900' : ''}
+                  ${isCellActive ? 'bg-[#FDE047] border-[#EAB308] ring-2 md:ring-4 ring-[#FEF08A] z-20 scale-110 shadow-md text-yellow-900' : ''}
                   ${isRevealed ? 'bg-[#86EFAC] text-[#14532D] border-[#22C55E]' : ''}
                 `} 
                 onClick={() => { if (!isBlack && interactive && onCellClick) onCellClick(x, y); }}
               >
-                {!isBlack && startNumber && <span className={`absolute top-0.5 left-1 text-[10px] md:text-xs font-black ${isRevealed ? 'text-[#166534]' : 'text-slate-400'}`}>{startNumber}</span>}
+                {!isBlack && startNumber && <span className={`absolute top-0 left-0.5 md:top-0.5 md:left-1 text-[8px] md:text-[10px] font-black ${isRevealed ? 'text-[#166534]' : 'text-slate-400'}`}>{startNumber}</span>}
                 {!isBlack && <span className="uppercase animate-fade-in">{displayChar}</span>}
               </div>
             );
@@ -431,7 +430,6 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
     </div>
   );
 }
-
 // --- MODE SOLO ---
 function PlaySolo({ gamePackage, onBack }) {
   const [generatedData, setGeneratedData] = useState(null);
