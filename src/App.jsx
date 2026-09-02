@@ -372,8 +372,7 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
   );
 }
 
-// --- BOARD UI (DIPERBESAR & TEMA KARTUN PASTEL) ---
-// --- BOARD UI (SATU LAYAR, ANTI-SCROLL, RESPONSIF) ---
+// --- BOARD UI (DIJAMIN PERSEGI & PAS 1 LAYAR) ---
 function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, interactive = false, activeWord = null, activeCell = null, userAnswers = {} }) {
   let grid = generatedData?.grid;
   if (!grid && generatedData?.gridString) grid = JSON.parse(generatedData.gridString);
@@ -383,8 +382,8 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
 
   return (
     <div className="w-full h-full flex items-center justify-center p-2">
-      {/* Wadah papan menggunakan aspect-square agar selalu persegi, max-h-full agar tidak melebihi tinggi layar */}
-      <div className="w-full max-h-full aspect-square bg-[#E0F2FE] border-4 border-[#7DD3FC] p-2 md:p-3 rounded-2xl md:rounded-[2rem] shadow-[6px_6px_0px_0px_#7DD3FC]" 
+      {/* Wadah dipaksa berbentuk kotak sempurna (aspect-square) dan tidak melebihi tinggi layar */}
+      <div className="max-w-full max-h-full aspect-square bg-[#E0F2FE] border-4 border-[#7DD3FC] p-2 md:p-3 rounded-2xl md:rounded-[2rem] shadow-[6px_6px_0px_0px_#7DD3FC] mx-auto" 
            style={{ 
              display: 'grid', 
              gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
@@ -410,8 +409,8 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
             return (
               <div 
                 key={`${x}-${y}`} 
-                // Kotak diubah menjadi w-full h-full agar mengisi ruang grid fraksi tanpa angka pasti
-                className={`relative flex items-center justify-center font-black text-sm md:text-xl lg:text-2xl select-none transition-all duration-150 w-full h-full rounded-md md:rounded-lg
+                // FIX: Menambahkan "aspect-square" di sini memaksa setiap kotak individu selalu persegi empat!
+                className={`relative flex items-center justify-center font-black text-sm md:text-xl lg:text-2xl select-none transition-all duration-150 w-full h-full aspect-square rounded-sm md:rounded-md
                   ${isBlack ? 'bg-transparent' : 'bg-white border-2 md:border-[3px] border-slate-200 shadow-sm text-slate-700'} 
                   ${!isBlack && interactive ? 'cursor-pointer hover:bg-sky-50 hover:scale-110 hover:z-10' : ''}
                   ${isPartOfActiveWord && !isRevealed && !isCellActive ? 'bg-[#BAE6FD] border-[#38BDF8]' : ''}
@@ -420,7 +419,7 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
                 `} 
                 onClick={() => { if (!isBlack && interactive && onCellClick) onCellClick(x, y); }}
               >
-                {!isBlack && startNumber && <span className={`absolute top-0 left-0.5 md:top-0.5 md:left-1 text-[8px] md:text-[10px] font-black ${isRevealed ? 'text-[#166534]' : 'text-slate-400'}`}>{startNumber}</span>}
+                {!isBlack && startNumber && <span className={`absolute top-0 left-[2px] md:top-[2px] md:left-1 text-[8px] md:text-[10px] font-black ${isRevealed ? 'text-[#166534]' : 'text-slate-400'}`}>{startNumber}</span>}
                 {!isBlack && <span className="uppercase animate-fade-in">{displayChar}</span>}
               </div>
             );
