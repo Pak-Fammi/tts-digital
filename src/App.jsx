@@ -192,7 +192,7 @@ export default function App() {
   const handleLicenseCheck = (e) => {
     e.preventDefault();
     if (licenseKey === 'GURU123') setView('dashboard');
-    else alert("Kode Lisensi Salah! (Gunakan: GURU123)"); // Sengaja tetap alert karena di luar game
+    else alert("Kode Lisensi Salah! (KETIK KODE)"); // Sengaja tetap alert karena di luar game
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center text-2xl text-[#14B8A6] font-black animate-pulse">Menyiapkan Arena...</div>;
