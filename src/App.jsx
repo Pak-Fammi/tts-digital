@@ -305,7 +305,7 @@ export default function App() {
   );
 }
 
-// --- GAME EDITOR ---
+// --- GAME EDITOR (DENGAN AI AUTO-FALLBACK) ---
 function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
   const [formData, setFormData] = useState(initialData);
   const [newWord, setNewWord] = useState('');
@@ -345,7 +345,6 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
     }
   };
 
-  // FIX: AUTO-FALLBACK AI GENERATOR
   const handleAIGenerate = async () => {
     if (!aiKey) return alert("Masukkan API Key Gemini terlebih dahulu!");
     if (!aiTopic) return alert("Topik soal tidak boleh kosong!");
@@ -370,15 +369,24 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
         return await res.json();
       };
 
-      // 1. Coba menggunakan model Flash terbaru
-      let data = await fetchWithModel('gemini-1.5-flash');
-      
-      // 2. Fallback: Jika tidak didukung, otomatis coba pakai model lama yang paling stabil
-      if (data.error && data.error.message.toLowerCase().includes('not found')) {
-        data = await fetchWithModel('gemini-1.0-pro');
+      // FIX: Auto-Seeker. Coba mulai dari model terbaru, jika ditolak akun, turun ke versi sebelumnya.
+      const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro'];
+      let data = null;
+      let lastError = null;
+
+      for (const model of modelsToTry) {
+          try {
+              data = await fetchWithModel(model);
+              if (!data.error) break; // Sukses! Hentikan pencarian.
+              lastError = data.error.message;
+          } catch (err) {
+              lastError = err.message;
+          }
       }
-      
-      if (data.error) throw new Error(data.error.message);
+
+      if (!data || data.error) {
+         throw new Error(lastError || "Semua model AI gagal diakses. Pastikan API Key Anda valid.");
+      }
       
       const text = data.candidates[0].content.parts[0].text;
       const lines = text.split('\n');
