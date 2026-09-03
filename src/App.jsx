@@ -386,6 +386,7 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
 }
 
 // --- BOARD UI (WARNA GELAP SLATE-800) ---
+// --- BOARD UI (DIJAMIN LUAS & ANTI POTONG ATAS) ---
 function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, interactive = false, activeWord = null, activeCell = null, userAnswers = {} }) {
   let grid = generatedData?.grid;
   if (!grid && generatedData?.gridString) grid = JSON.parse(generatedData.gridString);
@@ -394,13 +395,15 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
   if (!grid || grid.length === 0) return <div className="text-center p-10 font-black text-slate-400">Papan gagal dibuat. Pastikan kata-katanya bisa bersilangan!</div>;
 
   return (
-    <div className="w-full h-full flex items-center justify-center overflow-auto custom-scrollbar">
-      {/* Warna latar diubah menjadi Dark Slate (#1E293B) dengan border gelap */}
-      <div className="mx-auto w-full max-w-[95vw] md:max-w-[550px] lg:max-w-[700px] bg-[#1E293B] border-4 border-[#0F172A] p-2 md:p-5 rounded-2xl md:rounded-[2rem] shadow-[6px_6px_0px_0px_#0F172A]" 
+    // FIX 1: Menggunakan items-start agar saat papan lebih tinggi dari layar, atasnya tetap di titik 0 dan tidak terdorong keluar batas.
+    <div className="w-full h-full flex items-start justify-center overflow-auto custom-scrollbar p-4 md:p-8">
+      
+      {/* FIX 2: Menghapus batas lebar (max-w) dan menggantinya dengan w-max agar warna gelap membungkus penuh selebar apa pun papannya */}
+      <div className="bg-[#1E293B] border-4 border-[#0F172A] p-4 md:p-8 rounded-[2rem] shadow-2xl w-max mx-auto" 
            style={{ 
              display: 'grid', 
-             gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-             gap: gridSize >= 15 ? '2px' : '4px' 
+             gridTemplateColumns: `repeat(${gridSize}, max-content)`,
+             gap: gridSize >= 15 ? '3px' : '5px' 
            }}>
         {grid.map((row, y) => row.map((cell, x) => {
             const isBlack = cell === null;
@@ -421,16 +424,18 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
             return (
               <div 
                 key={`${x}-${y}`} 
-                className={`relative flex items-center justify-center font-black text-sm sm:text-base md:text-xl lg:text-2xl select-none transition-all duration-150 w-full aspect-square rounded-sm md:rounded-md
-                  ${isBlack ? 'bg-transparent' : 'bg-white border-[1.5px] sm:border-2 md:border-[3px] border-slate-300 shadow-sm text-slate-800'} 
+                // FIX 3: Ukuran piksel yang solid untuk kotak persegi sempurna
+                className={`relative flex items-center justify-center font-black text-lg sm:text-2xl lg:text-3xl select-none transition-all duration-150 rounded-md
+                  w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16
+                  ${isBlack ? 'bg-transparent' : 'bg-white border-[2px] md:border-[3px] border-slate-300 shadow-sm text-slate-800'} 
                   ${!isBlack && interactive ? 'cursor-pointer hover:bg-[#F0F9FF] hover:scale-110 hover:z-10' : ''}
                   ${isPartOfActiveWord && !isRevealed && !isCellActive ? 'bg-[#7DD3FC] border-[#0284C7]' : ''}
-                  ${isCellActive ? 'bg-[#FDE047] border-[#EAB308] ring-2 md:ring-4 ring-[#FEF08A] z-20 scale-110 shadow-lg text-yellow-900' : ''}
+                  ${isCellActive ? 'bg-[#FDE047] border-[#EAB308] ring-4 ring-[#FEF08A] z-20 scale-110 shadow-lg text-yellow-900' : ''}
                   ${isRevealed ? 'bg-[#86EFAC] text-[#14532D] border-[#16A34A]' : ''}
                 `} 
                 onClick={() => { if (!isBlack && interactive && onCellClick) onCellClick(x, y); }}
               >
-                {!isBlack && startNumber && <span className={`absolute top-0 left-[2px] md:top-[2px] md:left-1 text-[8px] md:text-[10px] font-black ${isRevealed ? 'text-[#166534]' : 'text-slate-500'}`}>{startNumber}</span>}
+                {!isBlack && startNumber && <span className={`absolute top-0.5 left-1 text-[9px] md:text-xs font-black ${isRevealed ? 'text-[#166534]' : 'text-slate-500'}`}>{startNumber}</span>}
                 {!isBlack && <span className="uppercase animate-fade-in">{displayChar}</span>}
               </div>
             );
@@ -440,18 +445,87 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
     </div>
   );
 }
-
 // --- POP-UP PETUNJUK (UNTUK FULLSCREEN & TAMPILAN KECIL) ---
+// --- POP-UP PETUNJUK (BISA DIGESER / DRAGGABLE) ---
 function CluePopup({ activeWord, activeCell, setActiveWord, setActiveCell, checkCurrentWord, guess, handleType, isMuted }) {
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [rel, setRel] = useState({ x: 0, y: 0 });
+
+  // Reset posisi ke tengah bawah saat ganti soal
+  useEffect(() => {
+    setPos({ x: 0, y: 0 });
+  }, [activeWord]);
+
   if (!activeWord) return null;
+
+  // Logika Drag & Drop
+  const onMouseDown = (e) => {
+    setIsDragging(true);
+    setRel({ x: e.pageX - pos.x, y: e.pageY - pos.y });
+    e.stopPropagation(); e.preventDefault();
+  };
+  const onMouseUp = () => setIsDragging(false);
+  const onMouseMove = (e) => {
+    if (!isDragging) return;
+    setPos({ x: e.pageX - rel.x, y: e.pageY - rel.y });
+    e.stopPropagation(); e.preventDefault();
+  };
+
+  // Logika Sentuh untuk HP
+  const onTouchStart = (e) => {
+    setIsDragging(true);
+    setRel({ x: e.touches[0].pageX - pos.x, y: e.touches[0].pageY - pos.y });
+  };
+  const onTouchMove = (e) => {
+    if (!isDragging) return;
+    setPos({ x: e.touches[0].pageX - rel.x, y: e.touches[0].pageY - rel.y });
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      window.addEventListener('touchmove', onTouchMove, { passive: false });
+      window.addEventListener('touchend', onMouseUp);
+    } else {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onMouseUp);
+    };
+  }, [isDragging, rel]);
+
   return (
-    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[95%] max-w-lg bg-[#38BDF8] border-4 border-[#0284C7] p-5 rounded-[2rem] shadow-[0_10px_40px_rgb(0,0,0,0.4)] z-[60] flex flex-col gap-3 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <span className="text-xs md:text-sm font-black bg-[#FEF08A] text-[#854D0E] px-4 py-1.5 rounded-xl shadow-sm">{activeWord.isHorizontal ? 'MENDATAR' : 'MENURUN'} - {activeWord.number}</span>
-        <button onClick={() => {setActiveWord(null); setActiveCell(null);}} className="bg-white/20 p-2 rounded-xl hover:bg-white/40 transition"><XCircle className="w-6 h-6 text-white"/></button>
+    <div 
+      className={`fixed z-[60] w-[95%] max-w-md bg-[#38BDF8] border-4 border-[#0284C7] p-5 rounded-[2rem] shadow-[0_10px_40px_rgb(0,0,0,0.6)] flex flex-col gap-3 ${!isDragging && 'animate-fade-in'}`}
+      style={{
+        left: '50%', bottom: '24px',
+        transform: `translate(calc(-50% + ${pos.x}px), ${pos.y}px)`,
+        cursor: isDragging ? 'grabbing' : 'grab'
+      }}
+      onMouseDown={onMouseDown} onTouchStart={onTouchStart}
+    >
+      <div className="flex justify-between items-center pb-2">
+        <span className="text-xs md:text-sm font-black bg-[#FEF08A] text-[#854D0E] px-4 py-1.5 rounded-xl shadow-sm select-none pointer-events-none">{activeWord.isHorizontal ? 'MENDATAR' : 'MENURUN'} - {activeWord.number}</span>
+        
+        {/* Indikator Grip (Pegangan untuk digeser) */}
+        <div className="flex-1 flex justify-center pointer-events-none">
+          <div className="w-16 h-2 bg-white/40 rounded-full"></div>
+        </div>
+
+        <button onMouseDown={(e)=>e.stopPropagation()} onTouchStart={(e)=>e.stopPropagation()} onClick={() => {setActiveWord(null); setActiveCell(null);}} className="bg-white/20 p-2 rounded-xl hover:bg-white/40 transition z-10"><XCircle className="w-6 h-6 text-white"/></button>
       </div>
-      <p className="text-lg md:text-2xl font-black text-white leading-tight drop-shadow-md mb-2">{activeWord.clue}</p>
-      <form onSubmit={(e) => { e.preventDefault(); checkCurrentWord(); }} className="flex gap-2">
+      
+      <p className="text-lg md:text-2xl font-black text-white leading-tight drop-shadow-md mb-2 select-none" onMouseDown={(e)=>e.stopPropagation()} onTouchStart={(e)=>e.stopPropagation()}>{activeWord.clue}</p>
+      
+      <form onSubmit={(e) => { e.preventDefault(); checkCurrentWord(); }} className="flex gap-2" onMouseDown={(e)=>e.stopPropagation()} onTouchStart={(e)=>e.stopPropagation()}>
         <input autoFocus type="text" placeholder={`${activeWord.word.length} HURUF`} className="flex-grow border-4 border-white/50 bg-white rounded-2xl p-4 text-center text-xl font-black uppercase tracking-widest focus:border-white outline-none text-[#0369A1] shadow-inner" value={guess} onChange={handleType} maxLength={activeWord.word.length} />
         <button type="submit" className="bg-[#A7F3D0] text-[#065F46] px-6 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#059669] active:translate-y-1 active:shadow-none transition">CEK</button>
       </form>
