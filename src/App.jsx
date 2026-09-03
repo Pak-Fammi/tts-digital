@@ -9,7 +9,8 @@ import {
 } from 'firebase/firestore';
 import { 
   Settings, Users, Play, Plus, Trash2, Edit, Save, 
-  LogOut, CheckCircle, XCircle, Trophy, Key, ArrowLeft, ClipboardType
+  LogOut, CheckCircle, XCircle, Trophy, Key, ArrowLeft, ClipboardType,
+  Volume2, VolumeX
 } from 'lucide-react';
 
 // --- Konfigurasi Firebase Asli ---
@@ -27,7 +28,22 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const APP_ID = 'tts-digital-app';
 
-// --- Mesin Pembuat TTS (Diperbarui: Anti Kotak Terpisah) ---
+// --- ASET AUDIO (SFX & BGM) ---
+const SOUNDS = {
+  type: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
+  correct: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3',
+  wrong: 'https://assets.mixkit.co/active_storage/sfx/2997/2997-preview.mp3',
+  bgm: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3'
+};
+
+const playSFX = (type, isMuted) => {
+  if (isMuted) return;
+  const audio = new Audio(SOUNDS[type]);
+  audio.volume = type === 'type' ? 0.3 : 0.6; // Suara ketik lebih pelan
+  audio.play().catch(() => {}); // Abaikan error jika browser memblokir sementara
+};
+
+// --- Mesin Pembuat TTS ---
 const generateCrossword = (wordsList, size) => {
   if (!wordsList || wordsList.length === 0) return { grid: [], placedWords: [] };
   const words = [...wordsList].sort((a, b) => b.word.length - a.word.length);
@@ -76,13 +92,11 @@ const generateCrossword = (wordsList, size) => {
     });
   };
 
-  // 1. Letakkan kata pertama di tengah
   const firstWord = words.shift();
   const startX = Math.floor((size - firstWord.word.length) / 2);
   const startY = Math.floor(size / 2);
   placeWord(firstWord, Math.max(0, startX), startY, true);
 
-  // 2. Loop kata sisanya, HANYA pasang jika bersilangan
   let unplacedWords = [...words];
   let keepTrying = true;
 
@@ -111,14 +125,13 @@ const generateCrossword = (wordsList, size) => {
               if (newStartX >= 0 && newStartY >= 0 && canPlace(currentWord, newStartX, newStartY, newIsHoriz)) {
                 placeWord(currentWordObj, newStartX, newStartY, newIsHoriz);
                 placed = true;
-                keepTrying = true; // Coba lagi sisa kata karena ada bentuk baru
+                keepTrying = true;
                 break;
               }
             }
           }
         }
       }
-      // Jika TIDAK ADA persilangan sama sekali, biarkan tidak terpasang (mencegah kotak gantung)
       if (!placed) stillUnplaced.push(currentWordObj);
     }
     unplacedWords = stillUnplaced;
@@ -175,7 +188,7 @@ export default function App() {
           <div className="bg-white p-2 rounded-xl shadow-sm">
             <Settings className="w-6 h-6 text-[#14B8A6]" />
           </div>
-          <h1 className="text-2xl font-black tracking-widest text-white drop-shadow-md">TTS DIGITAL</h1>
+          <h1 className="text-xl md:text-2xl font-black tracking-widest text-white drop-shadow-md">TTS DIGITAL</h1>
         </div>
         {view !== 'license' && view !== 'role_select' && (
           <button onClick={() => setView('role_select')} className="flex items-center gap-2 bg-[#F43F5E] hover:bg-[#E11D48] shadow-[0_3px_0_0_#BE123C] active:shadow-none active:translate-y-1 px-4 py-2 rounded-2xl font-bold transition-all">
@@ -184,7 +197,7 @@ export default function App() {
         )}
       </header>
 
-      <main className="p-4 md:p-8 max-w-7xl mx-auto">
+      <main className="p-2 md:p-4 lg:p-8 max-w-[1400px] mx-auto">
         {view === 'license' && (
           <div className="max-w-md mx-auto mt-16 bg-white p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.05)] border-4 border-[#FCE7F3]">
             <h2 className="text-3xl font-black text-center mb-8 text-[#F472B6]">Selamat Datang!</h2>
@@ -211,7 +224,7 @@ export default function App() {
         )}
 
         {view === 'role_select' && (
-          <PlayerJoin db={db} appId={APP_ID} onJoin={(s, t) => { setSessionData(s); setPlayerTeam(t); setView('player_play'); }} onBack={() => setView('license')} />
+          <PlayerJoin db={db} onJoin={(s, t) => { setSessionData(s); setPlayerTeam(t); setView('player_play'); }} onBack={() => setView('license')} />
         )}
 
         {view === 'dashboard' && (
@@ -282,15 +295,13 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
   const handleBulkImport = () => {
     const lines = bulkText.split('\n');
     const newWordsList = [];
-    let skipped = 0;
     lines.forEach(line => {
       if (line.includes('-') || line.includes('=') || line.includes(':')) {
          const parts = line.split(/[-=:]/);
          const word = parts[0].trim().toUpperCase().replace(/[^A-Z]/g, '');
          const clue = parts.slice(1).join('-').trim();
          if (word.length >= 2 && clue.length > 0) newWordsList.push({ word, clue });
-         else skipped++;
-      } else if(line.trim() !== '') skipped++;
+      }
     });
     if (newWordsList.length > 0) {
        setFormData(prev => ({ ...prev, words: [...prev.words, ...newWordsList] }));
@@ -373,7 +384,6 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
 }
 
 // --- BOARD UI (DIJAMIN PERSEGI & PAS 1 LAYAR) ---
-// --- BOARD UI (DIJAMIN ANTI TERPOTONG ATAS) ---
 function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, interactive = false, activeWord = null, activeCell = null, userAnswers = {} }) {
   let grid = generatedData?.grid;
   if (!grid && generatedData?.gridString) grid = JSON.parse(generatedData.gridString);
@@ -382,11 +392,8 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
   if (!grid || grid.length === 0) return <div className="text-center p-10 font-black text-slate-400">Papan gagal dibuat. Pastikan kata-katanya bisa bersilangan!</div>;
 
   return (
-    // FIX: Menghapus "flex items-center justify-center". 
-    // Menggunakan block layout agar papan melebar ke bawah dan atasnya tidak pernah terpotong.
     <div className="w-full h-full overflow-auto custom-scrollbar p-2 md:p-4">
-      
-      <div className="mx-auto w-full max-w-[85vw] md:max-w-[550px] lg:max-w-[650px] bg-[#E0F2FE] border-4 border-[#7DD3FC] p-3 md:p-5 rounded-2xl md:rounded-[2rem] shadow-[6px_6px_0px_0px_#7DD3FC]" 
+      <div className="mx-auto w-full max-w-[85vw] md:max-w-[550px] lg:max-w-[650px] bg-[#E0F2FE] border-4 border-[#7DD3FC] p-2 md:p-4 rounded-2xl md:rounded-[2rem] shadow-[6px_6px_0px_0px_#7DD3FC]" 
            style={{ 
              display: 'grid', 
              gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
@@ -430,13 +437,28 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
     </div>
   );
 }
-// --- MODE SOLO (KOLOM KANAN LEBIH RAMPING) ---
+
+// --- MODE SOLO ---
 function PlaySolo({ gamePackage, onBack }) {
   const [generatedData, setGeneratedData] = useState(null);
   const [revealedWords, setRevealedWords] = useState([]);
   const [activeWord, setActiveWord] = useState(null);
   const [activeCell, setActiveCell] = useState(null);
   const [userAnswers, setUserAnswers] = useState({});
+  const [isMuted, setIsMuted] = useState(false);
+  const [bgm] = useState(() => new Audio(SOUNDS.bgm));
+
+  // Jalankan BGM saat komponen dimount
+  useEffect(() => {
+    bgm.loop = true;
+    bgm.volume = 0.15; // Sangat pelan, tidak ganggu konsentrasi
+    if (!isMuted) {
+      bgm.play().catch(() => console.log('Autoplay ditahan browser'));
+    } else {
+      bgm.pause();
+    }
+    return () => { bgm.pause(); };
+  }, [isMuted, bgm]);
 
   useEffect(() => { setGeneratedData(generateCrossword(gamePackage.words, gamePackage.gridSize)); }, [gamePackage]);
 
@@ -446,10 +468,12 @@ function PlaySolo({ gamePackage, onBack }) {
       const key = e.key.toUpperCase();
 
       if (/^[A-Z]$/.test(key) && key.length === 1) {
+        playSFX('type', isMuted);
         setUserAnswers(prev => ({ ...prev, [`${activeCell.x}-${activeCell.y}`]: key }));
         if (activeWord.isHorizontal && activeCell.x < activeWord.x + activeWord.word.length - 1) setActiveCell({ x: activeCell.x + 1, y: activeCell.y });
         else if (!activeWord.isHorizontal && activeCell.y < activeWord.y + activeWord.word.length - 1) setActiveCell({ x: activeCell.x, y: activeCell.y + 1 });
       } else if (e.key === 'Backspace') {
+        playSFX('type', isMuted);
         setUserAnswers(prev => { const next = { ...prev }; delete next[`${activeCell.x}-${activeCell.y}`]; return next; });
         if (activeWord.isHorizontal && activeCell.x > activeWord.x) setActiveCell({ x: activeCell.x - 1, y: activeCell.y });
         else if (!activeWord.isHorizontal && activeCell.y > activeWord.y) setActiveCell({ x: activeCell.x, y: activeCell.y - 1 });
@@ -457,7 +481,7 @@ function PlaySolo({ gamePackage, onBack }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeCell, activeWord, userAnswers]);
+  }, [activeCell, activeWord, userAnswers, isMuted]);
 
   const handleCellClick = (x, y) => {
     const { placedWords } = generatedData;
@@ -479,9 +503,13 @@ function PlaySolo({ gamePackage, onBack }) {
     }
     if (currentGuess.trim().length < activeWord.word.length) return alert("Lengkapi kotaknya!");
     if (currentGuess === activeWord.word) {
+      playSFX('correct', isMuted); // Suara Benar!
       if (!revealedWords.includes(activeWord.word)) setRevealedWords([...revealedWords, activeWord.word]);
       setActiveWord(null); setActiveCell(null);
-    } else alert("Ops, salah. Coba lagi!");
+    } else {
+      playSFX('wrong', isMuted); // Suara Salah!
+      alert("Ops, salah. Coba lagi!");
+    }
   };
 
   if (!generatedData) return <div className="flex h-[80vh] items-center justify-center font-black text-2xl text-[#F472B6] animate-pulse">Menyiapkan Papan Ajaib...</div>;
@@ -492,17 +520,20 @@ function PlaySolo({ gamePackage, onBack }) {
       <div className="flex justify-between items-center mb-4 bg-white p-4 rounded-2xl shadow-sm border-4 border-[#E0F2FE]">
         <button onClick={onBack} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-500"><ArrowLeft className="w-5 h-5"/></button>
         <div className="text-center font-black text-xl md:text-2xl text-[#38BDF8] drop-shadow-sm">MODE SOLO</div>
-        <button onClick={() => setRevealedWords(generatedData.placedWords.map(w => w.word))} className="bg-[#FEF08A] text-[#854D0E] px-3 py-2 rounded-xl font-black shadow-[0_4px_0_0_#EAB308] active:translate-y-1 active:shadow-none text-sm md:text-base">Buka Semua</button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setIsMuted(!isMuted)} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600">
+            {isMuted ? <VolumeX className="w-5 h-5"/> : <Volume2 className="w-5 h-5"/>}
+          </button>
+          <button onClick={() => setRevealedWords(generatedData.placedWords.map(w => w.word))} className="bg-[#FEF08A] text-[#854D0E] px-3 py-2 rounded-xl font-black shadow-[0_4px_0_0_#EAB308] active:translate-y-1 active:shadow-none text-sm md:text-base">Buka Semua</button>
+        </div>
       </div>
       
       <div className="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden">
-        {/* FIX: Menggunakan flex-1 agar papan bebas menyesuaikan ruang */}
-        <div className="flex-1 bg-white rounded-[2rem] border-4 border-[#FCE7F3] flex items-center justify-center relative shadow-inner overflow-hidden p-2">
+        <div className="flex-1 bg-white rounded-[2rem] border-4 border-[#FCE7F3] flex items-center justify-center relative shadow-inner overflow-hidden">
           {isComplete && <div className="absolute inset-0 bg-white/90 z-30 flex flex-col items-center justify-center backdrop-blur-md animate-fade-in"><Trophy className="w-32 h-32 text-yellow-400 mb-6 drop-shadow-lg" /><h2 className="text-5xl font-black text-[#F472B6] tracking-tight">KAMU HEBAT!</h2></div>}
           <BoardUI gridSize={gamePackage.gridSize} generatedData={generatedData} revealedWords={revealedWords} activeWord={activeWord} activeCell={activeCell} userAnswers={userAnswers} onCellClick={handleCellClick} interactive={true} />
         </div>
         
-        {/* FIX: Kolom petunjuk diubah lebarnya menjadi fix 320px (Sangat Ramping) */}
         <div className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border-4 border-[#E0F2FE] flex flex-col overflow-hidden shadow-sm">
           {activeWord ? (
             <div className="p-4 md:p-5 bg-[#38BDF8] text-white border-b-4 border-[#0284C7] shadow-md z-10 animate-fade-in">
@@ -575,9 +606,19 @@ function HostLobby({ gamePackage, user, db, onStart, onCancel }) {
   );
 }
 
-// --- LAYAR GURU (MULTIPLAYER KLASEMEN LEBIH RAMPING) ---
 function HostPlay({ sessionPin, db, onEnd }) {
   const [sessionData, setSessionData] = useState(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [bgm] = useState(() => new Audio(SOUNDS.bgm));
+
+  // BGM Layar Guru
+  useEffect(() => {
+    bgm.loop = true;
+    bgm.volume = 0.15; 
+    if (!isMuted) bgm.play().catch(() => {});
+    else bgm.pause();
+    return () => { bgm.pause(); };
+  }, [isMuted, bgm]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'tts_sessions', sessionPin), (snap) => {
@@ -598,11 +639,15 @@ function HostPlay({ sessionPin, db, onEnd }) {
           <h2 className="text-xl md:text-3xl font-black text-slate-800">{sessionData.title} <span className="bg-[#F43F5E] text-white text-xs px-2 py-1 rounded-xl ml-2 animate-pulse">LIVE</span></h2>
           <p className="text-slate-500 font-bold mt-1 text-sm md:text-lg">PIN Masuk: <span className="font-black text-[#38BDF8] text-lg md:text-2xl ml-2">{sessionPin}</span></p>
         </div>
-        <button onClick={async () => { if(window.confirm('Tutup ruangan?')) { await deleteDoc(doc(db, 'tts_sessions', sessionPin)); onEnd(); } }} className="bg-[#FECDD3] text-[#BE123C] px-4 md:px-6 py-3 rounded-2xl font-black text-sm md:text-lg shadow-[0_4px_0_0_#F43F5E] active:translate-y-1 active:shadow-none">Tutup Room</button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setIsMuted(!isMuted)} className="p-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600">
+            {isMuted ? <VolumeX className="w-6 h-6"/> : <Volume2 className="w-6 h-6"/>}
+          </button>
+          <button onClick={async () => { if(window.confirm('Tutup ruangan?')) { await deleteDoc(doc(db, 'tts_sessions', sessionPin)); onEnd(); } }} className="bg-[#FECDD3] text-[#BE123C] px-4 md:px-6 py-3 rounded-2xl font-black text-sm md:text-lg shadow-[0_4px_0_0_#F43F5E] active:translate-y-1 active:shadow-none">Tutup Room</button>
+        </div>
       </div>
 
       <div className="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden">
-        {/* FIX: flex-1 untuk papan Guru */}
         <div className="flex-1 bg-white border-4 border-[#FCE7F3] rounded-[2rem] p-2 md:p-4 flex items-center justify-center overflow-hidden relative shadow-inner">
           {isComplete && (
             <div className="absolute inset-0 bg-white/90 z-30 flex flex-col items-center justify-center backdrop-blur-sm animate-fade-in">
@@ -619,7 +664,6 @@ function HostPlay({ sessionPin, db, onEnd }) {
           <BoardUI gridSize={sessionData.gridSize} generatedData={sessionData.generatedData} revealedWords={sessionData.revealedWords} interactive={false} />
         </div>
         
-        {/* FIX: Lebar Klasemen dipatok 320px (Sangat Ramping) */}
         <div className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border-4 border-[#BBF7D0] flex flex-col overflow-hidden shadow-sm">
           <div className="bg-[#34D399] text-white p-4 md:p-5 text-center border-b-4 border-[#10B981]">
             <h3 className="font-black text-xl flex items-center justify-center gap-2"><Trophy className="w-6 h-6"/> Klasemen</h3>
@@ -686,6 +730,17 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
   const [activeQ, setActiveQ] = useState(null);
   const [guess, setGuess] = useState('');
   const [feedback, setFeedback] = useState(null); 
+  const [isMuted, setIsMuted] = useState(false);
+  const [bgm] = useState(() => new Audio(SOUNDS.bgm));
+
+  // BGM Siswa
+  useEffect(() => {
+    bgm.loop = true;
+    bgm.volume = 0.15; 
+    if (!isMuted) bgm.play().catch(() => {});
+    else bgm.pause();
+    return () => { bgm.pause(); };
+  }, [isMuted, bgm]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'tts_sessions', localData.pin), (snap) => {
@@ -708,13 +763,26 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
              const newTeams = { ...currentData.teams };
              newTeams[teamName].score += 10;
              await updateDoc(ref, { revealedWords: [...currentData.revealedWords, activeQ.word], teams: newTeams });
+             playSFX('correct', isMuted);
              setFeedback({ type: 'success', msg: 'BENAR! +10 Poin' });
-          } else setFeedback({ type: 'error', msg: 'Keduluan tim lain!' });
+          } else {
+             playSFX('wrong', isMuted);
+             setFeedback({ type: 'error', msg: 'Keduluan tim lain!' });
+          }
         }
       } catch (err) {}
       setTimeout(() => { setActiveQ(null); setFeedback(null); setGuess(''); }, 2000);
-    } else { setFeedback({ type: 'error', msg: 'Salah!' }); setTimeout(() => setFeedback(null), 2000); }
+    } else { 
+      playSFX('wrong', isMuted);
+      setFeedback({ type: 'error', msg: 'Salah!' }); 
+      setTimeout(() => setFeedback(null), 2000); 
+    }
   };
+
+  const handleType = (e) => {
+    playSFX('type', isMuted);
+    setGuess(e.target.value.toUpperCase());
+  }
 
   const myScore = localData.teams?.[teamName]?.score || 0;
   const isComplete = localData.generatedData.placedWords.length > 0 && localData.revealedWords.length === localData.generatedData.placedWords.length;
@@ -732,7 +800,15 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
   return (
     <div className="max-w-3xl mx-auto flex flex-col h-[88vh]">
       <div className="bg-[#38BDF8] text-white rounded-[2rem] shadow-[0_5px_0_0_#0284C7] p-6 mb-6 flex justify-between items-center border-4 border-[#7DD3FC]">
-        <div><p className="text-sm font-black text-[#BAE6FD] uppercase tracking-wider mb-1">Tim Kamu</p><h2 className="text-3xl font-black">{teamName}</h2></div>
+        <div>
+          <p className="text-sm font-black text-[#BAE6FD] uppercase tracking-wider mb-1">Tim Kamu</p>
+          <div className="flex items-center gap-3">
+            <h2 className="text-3xl font-black">{teamName}</h2>
+            <button onClick={() => setIsMuted(!isMuted)} className="p-2 bg-white/20 hover:bg-white/40 rounded-xl ml-2 transition">
+              {isMuted ? <VolumeX className="w-5 h-5"/> : <Volume2 className="w-5 h-5"/>}
+            </button>
+          </div>
+        </div>
         <div className="text-right"><p className="text-sm font-black text-[#BAE6FD] uppercase tracking-wider mb-1">Skor</p><p className="text-4xl font-black">{myScore}</p></div>
       </div>
 
@@ -745,7 +821,7 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
           </div>
           <p className="text-3xl font-black mb-8 text-slate-800 leading-tight">{activeQ.clue}</p>
           <form onSubmit={handleSubmit}>
-            <input autoFocus type="text" placeholder={`${activeQ.word.length} HURUF`} className="w-full border-4 border-slate-100 bg-slate-50 rounded-2xl p-5 text-center text-4xl font-black uppercase tracking-widest focus:border-[#38BDF8] outline-none mb-6 text-[#0369A1]" value={guess} onChange={e=>setGuess(e.target.value.toUpperCase())} maxLength={activeQ.word.length} />
+            <input autoFocus type="text" placeholder={`${activeQ.word.length} HURUF`} className="w-full border-4 border-slate-100 bg-slate-50 rounded-2xl p-5 text-center text-4xl font-black uppercase tracking-widest focus:border-[#38BDF8] outline-none mb-6 text-[#0369A1]" value={guess} onChange={handleType} maxLength={activeQ.word.length} />
             <button type="submit" className="w-full bg-[#34D399] text-white p-5 rounded-2xl font-black text-2xl shadow-[0_6px_0_0_#059669] active:translate-y-1 active:shadow-none">JAWAB!</button>
           </form>
         </div>
@@ -759,7 +835,7 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
             {localData.generatedData.placedWords.filter(w => (i === 0 ? w.isHorizontal : !w.isHorizontal)).sort((a,b) => a.number - b.number).map(w => {
               const isAnswered = localData.revealedWords.includes(w.word);
               return (
-                <li key={w.number} onClick={() => !isAnswered && setActiveQ(w)} className={`p-5 rounded-2xl border-4 flex gap-4 transition-transform ${isAnswered ? 'bg-[#F0FDF4] border-[#BBF7D0] opacity-70' : 'bg-white border-slate-100 cursor-pointer hover:border-[#38BDF8] hover:scale-[1.02]'}`}>
+                <li key={w.number} onClick={() => { if(!isAnswered) { playSFX('type', isMuted); setActiveQ(w); } }} className={`p-5 rounded-2xl border-4 flex gap-4 transition-transform ${isAnswered ? 'bg-[#F0FDF4] border-[#BBF7D0] opacity-70' : 'bg-white border-slate-100 cursor-pointer hover:border-[#38BDF8] hover:scale-[1.02]'}`}>
                   <span className={`font-black text-2xl ${isAnswered ? 'text-[#34D399]' : 'text-[#38BDF8]'}`}>{w.number}.</span>
                   <span className={`flex-grow font-bold text-xl ${isAnswered ? 'line-through text-slate-400' : 'text-slate-700'}`}>{w.clue}</span>
                   {isAnswered && <CheckCircle className="text-[#10B981] w-8 h-8 flex-shrink-0" />}
