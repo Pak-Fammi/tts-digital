@@ -10,7 +10,7 @@ import {
 import { 
   Settings, Users, Play, Plus, Trash2, Edit, Save, 
   LogOut, CheckCircle, XCircle, Trophy, Key, ArrowLeft, ClipboardType,
-  Volume2, VolumeX, Maximize, Minimize, Eye, EyeOff, Wand2
+  Volume2, VolumeX, Maximize, Minimize, Eye, EyeOff
 } from 'lucide-react';
 
 // --- Konfigurasi Firebase Asli ---
@@ -152,7 +152,7 @@ const generateCrossword = (wordsList, size) => {
   return { grid, placedWords };
 };
 
-// --- Komponen Toast ---
+// --- Komponen Toast Global (Pengganti Alert Bawaan) ---
 function Toast({ toast }) {
   if (!toast) return null;
   return (
@@ -176,6 +176,13 @@ export default function App() {
   
   const [licenseKey, setLicenseKey] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // State Toast Terpusat
+  const [toast, setToast] = useState(null);
+  const showToast = (msg, type = 'error') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     const initAuth = async () => {
@@ -201,13 +208,16 @@ export default function App() {
   const handleLicenseCheck = (e) => {
     e.preventDefault();
     if (licenseKey === 'GURU123') setView('dashboard');
-    else alert("Kode Lisensi Salah! (Gunakan: GURU123)"); 
+    else showToast("Kode Lisensi Salah! (PAKAI LICENSI RESMI)", "error"); 
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center text-2xl text-[#14B8A6] font-black animate-pulse">Menyiapkan Arena...</div>;
 
   return (
     <div className="min-h-screen bg-[#FFF1F2] text-slate-800 font-sans selection:bg-[#FBCFE8]">
+      {/* Toast Ditempatkan Paling Atas Agar Melingkupi Semua Mode */}
+      <Toast toast={toast} />
+
       {view !== 'host_play' && view !== 'player_play' && view !== 'solo' && (
       <header className="bg-[#2DD4BF] text-white p-4 mx-4 mt-4 shadow-[0_4px_0_0_#14B8A6] flex justify-between items-center rounded-3xl z-10 relative">
         <div className="flex items-center gap-3">
@@ -242,7 +252,7 @@ export default function App() {
               <form onSubmit={handleLicenseCheck} className="flex flex-col gap-4">
                 <div className="relative">
                   <Key className="w-6 h-6 absolute left-4 top-4 text-[#F472B6]" />
-                  <input type={showPassword ? "text" : "password"} value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} placeholder="Kode Guru (GURU123)" className="w-full pl-12 pr-12 py-4 bg-[#FFF1F2] border-2 border-[#FBCFE8] rounded-2xl font-bold focus:border-[#F472B6] focus:ring-0 outline-none text-slate-700 placeholder-slate-400" required />
+                  <input type={showPassword ? "text" : "password"} value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} placeholder="KETIK KODE" className="w-full pl-12 pr-12 py-4 bg-[#FFF1F2] border-2 border-[#FBCFE8] rounded-2xl font-bold focus:border-[#F472B6] focus:ring-0 outline-none text-slate-700 placeholder-slate-400" required />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-slate-400 hover:text-[#F472B6] transition">
                     {showPassword ? <EyeOff className="w-6 h-6"/> : <Eye className="w-6 h-6"/>}
                   </button>
@@ -254,7 +264,7 @@ export default function App() {
         )}
 
         {view === 'role_select' && (
-          <PlayerJoin db={db} onJoin={(s, t) => { setSessionData(s); setPlayerTeam(t); setView('player_play'); }} onBack={() => setView('license')} />
+          <PlayerJoin db={db} onJoin={(s, t) => { setSessionData(s); setPlayerTeam(t); setView('player_play'); }} onBack={() => setView('license')} showToast={showToast} />
         )}
 
         {view === 'dashboard' && (
@@ -286,7 +296,15 @@ export default function App() {
                     <button onClick={() => { setCurrentPackage(pkg); setView('host_lobby'); }} className="w-full bg-[#DDD6FE] hover:bg-[#C4B5FD] text-[#5B21B6] py-3 rounded-xl font-black flex items-center justify-center gap-2 shadow-[0_4px_0_0_#8B5CF6] active:shadow-none active:translate-y-1 transition-all"><Users className="w-5 h-5" /> Buka Multiplayer</button>
                     <div className="flex gap-3 mt-2">
                       <button onClick={() => { setCurrentPackage(pkg); setView('editor'); }} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"><Edit className="w-4 h-4" /> Edit</button>
-                      <button onClick={async () => { if(window.confirm('Hapus paket ini selamanya?')) { await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'tts_packages', pkg.id)); setPackages(packages.filter(p => p.id !== pkg.id)); } }} className="bg-[#FECDD3] hover:bg-[#FDA4AF] text-[#BE123C] px-4 rounded-xl font-bold transition-all"><Trash2 className="w-5 h-5" /></button>
+                      {/* Custom Confirm Delete inline to avoid alert() */}
+                      <button onClick={async () => { 
+                          if(window.confirm('Hapus paket ini selamanya?')) { 
+                            await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'tts_packages', pkg.id)); 
+                            setPackages(packages.filter(p => p.id !== pkg.id)); 
+                            showToast("Paket berhasil dihapus", "success");
+                          } 
+                        }} className="bg-[#FECDD3] hover:bg-[#FDA4AF] text-[#BE123C] px-4 rounded-xl font-bold transition-all"><Trash2 className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -295,36 +313,32 @@ export default function App() {
           </div>
         )}
 
-        {view === 'editor' && <GameEditor initialData={currentPackage} user={user} db={db} appId={APP_ID} onSave={() => setView('dashboard')} onCancel={() => setView('dashboard')} />}
-        {view === 'solo' && currentPackage && <PlaySolo gamePackage={currentPackage} onBack={() => setView('dashboard')} />}
-        {view === 'host_lobby' && currentPackage && <HostLobby gamePackage={currentPackage} user={user} db={db} onStart={(p, d) => { setSessionPin(p); setSessionData(d); setView('host_play'); }} onCancel={() => setView('dashboard')} />}
-        {view === 'host_play' && sessionData && <HostPlay sessionPin={sessionPin} db={db} onEnd={() => setView('dashboard')} />}
-        {view === 'player_play' && sessionData && <PlayerPlay sessionData={sessionData} teamName={playerTeam} db={db} onLeave={() => setView('role_select')} />}
+        {view === 'editor' && <GameEditor initialData={currentPackage} user={user} db={db} appId={APP_ID} onSave={() => setView('dashboard')} onCancel={() => setView('dashboard')} showToast={showToast} />}
+        {view === 'solo' && currentPackage && <PlaySolo gamePackage={currentPackage} onBack={() => setView('dashboard')} showToast={showToast} />}
+        {view === 'host_lobby' && currentPackage && <HostLobby gamePackage={currentPackage} user={user} db={db} onStart={(p, d) => { setSessionPin(p); setSessionData(d); setView('host_play'); }} onCancel={() => setView('dashboard')} showToast={showToast} />}
+        {view === 'host_play' && sessionData && <HostPlay sessionPin={sessionPin} db={db} onEnd={() => setView('dashboard')} showToast={showToast} />}
+        {view === 'player_play' && sessionData && <PlayerPlay sessionData={sessionData} teamName={playerTeam} db={db} onLeave={() => setView('role_select')} showToast={showToast} />}
       </main>
     </div>
   );
 }
 
-// --- GAME EDITOR (DENGAN AI AUTO-FALLBACK) ---
-function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
+// --- GAME EDITOR (BEBAS DARI POP-UP BAWAAN & TANPA AI) ---
+function GameEditor({ initialData, user, db, appId, onSave, onCancel, showToast }) {
   const [formData, setFormData] = useState(initialData);
   const [newWord, setNewWord] = useState('');
   const [newClue, setNewClue] = useState('');
   const [saving, setSaving] = useState(false);
   const [inputMode, setInputMode] = useState('manual'); 
   const [bulkText, setBulkText] = useState('');
-  
-  const [aiTopic, setAiTopic] = useState('');
-  const [aiCount, setAiCount] = useState(10);
-  const [aiKey, setAiKey] = useState(localStorage.getItem('gemini_api_key') || '');
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const addWord = () => {
-    if (!newWord.trim() || !newClue.trim()) return;
+    if (!newWord.trim() || !newClue.trim()) return showToast("Kata dan petunjuk wajib diisi!", "error");
     const cleanWord = newWord.trim().toUpperCase().replace(/[^A-Z]/g, '');
-    if (cleanWord.length < 2) return alert("Kata minimal 2 huruf (hanya huruf).");
+    if (cleanWord.length < 2) return showToast("Kata minimal 2 huruf (hanya huruf).", "error");
     setFormData(prev => ({ ...prev, words: [...prev.words, { word: cleanWord, clue: newClue.trim() }] }));
     setNewWord(''); setNewClue('');
+    showToast("Kata berhasil ditambahkan!", "success");
   };
 
   const handleBulkImport = () => {
@@ -341,90 +355,23 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
     if (newWordsList.length > 0) {
        setFormData(prev => ({ ...prev, words: [...prev.words, ...newWordsList] }));
        setBulkText('');
-       alert(`Berhasil impor ${newWordsList.length} kata!`);
-    }
-  };
-
-  const handleAIGenerate = async () => {
-    if (!aiKey) return alert("Masukkan API Key Gemini terlebih dahulu!");
-    if (!aiTopic) return alert("Topik soal tidak boleh kosong!");
-    setIsGenerating(true);
-    localStorage.setItem('gemini_api_key', aiKey);
-    
-    try {
-      const prompt = `Buatkan ${aiCount} pasang kata dan petunjuk soal teka-teki silang (TTS) dengan topik "${aiTopic}". Syarat MUTLAK:
-      1. Kata jawaban HANYA terdiri dari huruf A-Z, tanpa spasi, tanpa angka.
-      2. Format setiap baris WAJIB persis seperti ini: JAWABAN - Petunjuk soal.
-      3. Jangan ada penomoran, jangan ada teks pembuka/penutup. Langsung berikan daftar katanya saja.
-      Contoh:
-      MATAHARI - Pusat tata surya kita
-      BUMI - Planet ketiga dari matahari`;
-      
-      const fetchWithModel = async (modelName) => {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${aiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-        return await res.json();
-      };
-
-      // FIX: Auto-Seeker. Coba mulai dari model terbaru, jika ditolak akun, turun ke versi sebelumnya.
-      const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro'];
-      let data = null;
-      let lastError = null;
-
-      for (const model of modelsToTry) {
-          try {
-              data = await fetchWithModel(model);
-              if (!data.error) break; // Sukses! Hentikan pencarian.
-              lastError = data.error.message;
-          } catch (err) {
-              lastError = err.message;
-          }
-      }
-
-      if (!data || data.error) {
-         throw new Error(lastError || "Semua model AI gagal diakses. Pastikan API Key Anda valid.");
-      }
-      
-      const text = data.candidates[0].content.parts[0].text;
-      const lines = text.split('\n');
-      const newWordsList = [];
-      
-      lines.forEach(line => {
-        if (line.includes('-') || line.includes('=') || line.includes(':')) {
-           const parts = line.split(/[-=:]/);
-           const word = parts[0].trim().toUpperCase().replace(/[^A-Z]/g, '');
-           const clue = parts.slice(1).join('-').trim();
-           if (word.length >= 2 && clue.length > 0) newWordsList.push({ word, clue });
-        }
-      });
-      
-      if (newWordsList.length > 0) {
-         setFormData(prev => ({ ...prev, words: [...prev.words, ...newWordsList] }));
-         setAiTopic('');
-         alert(`Magic! ${newWordsList.length} soal AI berhasil ditambahkan!`);
-      } else {
-         alert("Gagal memproses format dari AI. Coba klik Generate lagi.");
-      }
-    } catch (e) {
-      alert("Error AI: " + e.message);
-    } finally {
-      setIsGenerating(false);
+       showToast(`Berhasil impor ${newWordsList.length} kata!`, "success");
+    } else {
+       showToast("Gagal. Pastikan format: JAWABAN - Petunjuk", "error");
     }
   };
 
   const handleSave = async () => {
-    if (!formData.title) return alert("Nama Paket harus diisi!");
-    if (formData.words.length < 2) return alert("Minimal masukkan 2 kata!");
+    if (!formData.title) return showToast("Nama Paket harus diisi!", "error");
+    if (formData.words.length < 2) return showToast("Minimal masukkan 2 kata!", "error");
     setSaving(true);
     try {
       const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'tts_packages');
       if (formData.id) await setDoc(doc(colRef, formData.id), formData);
       else { const newDocRef = doc(colRef); await setDoc(newDocRef, { ...formData, id: newDocRef.id }); }
+      showToast("Paket Soal Tersimpan!", "success");
       onSave();
-    } catch (e) { alert("Gagal menyimpan."); } finally { setSaving(false); }
+    } catch (e) { showToast("Gagal menyimpan.", "error"); } finally { setSaving(false); }
   };
 
   return (
@@ -453,7 +400,6 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
           <div className="flex gap-2 mb-5 flex-wrap">
             <button onClick={() => setInputMode('manual')} className={`text-sm px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-sm transition ${inputMode === 'manual' ? 'bg-[#059669] text-white' : 'bg-white text-[#059669]'}`}><Edit className="w-4 h-4"/> Manual</button>
             <button onClick={() => setInputMode('bulk')} className={`text-sm px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-sm transition ${inputMode === 'bulk' ? 'bg-[#059669] text-white' : 'bg-white text-[#059669]'}`}><ClipboardType className="w-4 h-4"/> Paste</button>
-            <button onClick={() => setInputMode('ai')} className={`text-sm px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-sm transition ${inputMode === 'ai' ? 'bg-[#7C3AED] text-white border-2 border-[#7C3AED]' : 'bg-purple-50 text-[#7C3AED] border-2 border-[#DDD6FE]'}`}><Wand2 className="w-4 h-4"/> Generate AI</button>
           </div>
 
           {inputMode === 'manual' && (
@@ -473,26 +419,8 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
               <button onClick={handleBulkImport} className="bg-[#22C55E] text-white py-3 rounded-xl font-black shadow-[0_4px_0_0_#16A34A] active:translate-y-1 active:shadow-none">Proses Kata</button>
             </div>
           )}
-
-          {inputMode === 'ai' && (
-            <div className="flex flex-col gap-3 mb-6 bg-purple-50 p-4 rounded-2xl border-2 border-purple-200 animate-fade-in">
-              <p className="text-xs font-bold text-purple-700 mb-1">Dapatkan API Key Gratis di Google AI Studio</p>
-              <input type="password" placeholder="Gemini API Key" className="border-2 border-purple-200 rounded-xl p-3 font-semibold text-sm outline-none focus:border-purple-500" value={aiKey} onChange={e => setAiKey(e.target.value)} />
-              <div className="flex gap-2 mt-2">
-                <input type="text" placeholder="Topik (cth: Pahlawan Nasional)" className="border-2 border-purple-200 rounded-xl p-3 flex-grow font-semibold outline-none focus:border-purple-500" value={aiTopic} onChange={e => setAiTopic(e.target.value)} />
-                <select className="border-2 border-purple-200 rounded-xl p-3 font-bold text-purple-700 outline-none" value={aiCount} onChange={e => setAiCount(Number(e.target.value))}>
-                  <option value={5}>5 Kata</option>
-                  <option value={10}>10 Kata</option>
-                  <option value={15}>15 Kata</option>
-                </select>
-              </div>
-              <button onClick={handleAIGenerate} disabled={isGenerating} className="mt-2 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-black shadow-[0_4px_0_0_#5B21B6] active:translate-y-1 active:shadow-none transition flex justify-center items-center gap-2">
-                {isGenerating ? 'AI Sedang Berpikir...' : <><Wand2 className="w-5 h-5"/> Buat Otomatis</>}
-              </button>
-            </div>
-          )}
           
-          <div className="max-h-48 overflow-y-auto bg-white rounded-xl border-2 border-[#BBF7D0]">
+          <div className="max-h-48 overflow-y-auto bg-white rounded-xl border-2 border-[#BBF7D0] custom-scrollbar">
             {formData.words.length === 0 ? <p className="text-[#166534] font-bold text-center py-6">Belum ada soal.</p> : (
               <ul className="divide-y-2 divide-slate-100">{formData.words.map((w, i) => (
                 <li key={i} className="p-3 flex justify-between items-center text-sm">
@@ -646,7 +574,7 @@ function CluePopup({ activeWord, activeCell, setActiveWord, setActiveCell, check
 }
 
 // --- MODE SOLO ---
-function PlaySolo({ gamePackage, onBack }) {
+function PlaySolo({ gamePackage, onBack, showToast }) {
   const [generatedData, setGeneratedData] = useState(null);
   const [revealedWords, setRevealedWords] = useState([]);
   const [activeWord, setActiveWord] = useState(null);
@@ -655,13 +583,7 @@ function PlaySolo({ gamePackage, onBack }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bgm] = useState(() => new Audio(SOUNDS.bgm));
-  const [toast, setToast] = useState(null);
   const [hasWon, setHasWon] = useState(false);
-
-  const showToast = (msg, type) => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   useEffect(() => {
     bgm.loop = true;
@@ -701,7 +623,7 @@ function PlaySolo({ gamePackage, onBack }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeCell, activeWord, userAnswers]);
+  }, [activeCell, activeWord, userAnswers, isMuted]); 
 
   const handleCellClick = (x, y) => {
     const { placedWords } = generatedData;
@@ -761,8 +683,6 @@ function PlaySolo({ gamePackage, onBack }) {
 
   return (
     <div className={isFullscreen ? "fixed inset-0 z-50 bg-[#1E293B] p-2 flex flex-col" : "flex flex-col h-[88vh]"}>
-      <Toast toast={toast} />
-      
       <div className="flex-grow flex flex-col lg:flex-row gap-3 overflow-hidden relative mb-2 md:mb-3">
         <div className={`flex-1 flex items-center justify-center relative shadow-inner overflow-hidden rounded-[2rem] ${isFullscreen ? 'bg-transparent' : 'bg-white border-4 border-[#FCE7F3]'}`}>
           {isComplete && <div className="absolute inset-0 bg-white/90 z-30 flex flex-col items-center justify-center backdrop-blur-md animate-fade-in"><Trophy className="w-32 h-32 text-yellow-400 mb-6 drop-shadow-lg" /><h2 className="text-5xl font-black text-[#F472B6] tracking-tight">KAMU HEBAT!</h2></div>}
@@ -826,7 +746,7 @@ function PlaySolo({ gamePackage, onBack }) {
 }
 
 // --- MULTIPLAYER COMPONENTS ---
-function HostLobby({ gamePackage, user, db, onStart, onCancel }) {
+function HostLobby({ gamePackage, user, db, onStart, onCancel, showToast }) {
   const [pin] = useState(Math.floor(100000 + Math.random() * 900000).toString());
   const [starting, setStarting] = useState(false);
 
@@ -841,8 +761,9 @@ function HostLobby({ gamePackage, user, db, onStart, onCancel }) {
         revealedWords: [], teams: {}, createdAt: new Date().toISOString() 
       };
       await setDoc(doc(db, 'tts_sessions', pin), data);
+      showToast("Ruangan berhasil dibuka!", "success");
       onStart(pin, data);
-    } catch (error) { alert("Gagal membuat ruangan."); setStarting(false); }
+    } catch (error) { showToast("Gagal membuat ruangan.", "error"); setStarting(false); }
   };
 
   return (
@@ -861,12 +782,15 @@ function HostLobby({ gamePackage, user, db, onStart, onCancel }) {
   );
 }
 
-function HostPlay({ sessionPin, db, onEnd }) {
+function HostPlay({ sessionPin, db, onEnd, showToast }) {
   const [sessionData, setSessionData] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bgm] = useState(() => new Audio(SOUNDS.bgm));
   const [hasWon, setHasWon] = useState(false);
+  
+  // FIX: Custom Confirm State
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   useEffect(() => {
     bgm.loop = true;
@@ -953,14 +877,23 @@ function HostPlay({ sessionPin, db, onEnd }) {
           <button onClick={() => setIsFullscreen(!isFullscreen)} className={`p-1.5 md:p-2 rounded-lg transition-all ${isFullscreen ? 'bg-sky-500 text-white shadow-[0_2px_0_0_#0284C7]' : 'bg-[#BAE6FD] text-[#0369A1] shadow-[0_2px_0_0_#38BDF8]'}`}>
             {isFullscreen ? <Minimize className="w-4 h-4 md:w-5 md:h-5"/> : <Maximize className="w-4 h-4 md:w-5 md:h-5"/>}
           </button>
-          <button onClick={async () => { if(window.confirm('Tutup ruangan?')) { await deleteDoc(doc(db, 'tts_sessions', sessionPin)); onEnd(); } }} className="bg-[#FECDD3] text-[#BE123C] px-3 md:px-4 py-1.5 md:py-2 rounded-lg font-black text-xs md:text-sm shadow-[0_2px_0_0_#F43F5E] active:translate-y-1 active:shadow-none hidden md:block">Tutup Room</button>
+          
+          {/* FIX: Tombol Tutup Room Tanpa Alert Bawaan */}
+          {showConfirmClose ? (
+            <div className="flex gap-2 items-center ml-2">
+              <button onClick={() => setShowConfirmClose(false)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 md:py-2 rounded-lg font-black text-xs md:text-sm hidden md:block">Batal</button>
+              <button onClick={async () => { await deleteDoc(doc(db, 'tts_sessions', sessionPin)); showToast("Ruangan Ditutup", "success"); onEnd(); }} className="bg-[#FECDD3] hover:bg-[#FDA4AF] text-[#BE123C] px-3 py-1.5 md:py-2 rounded-lg font-black text-xs md:text-sm shadow-[0_2px_0_0_#F43F5E] active:translate-y-1 active:shadow-none hidden md:block animate-pulse">Yakin Tutup?</button>
+            </div>
+          ) : (
+            <button onClick={() => setShowConfirmClose(true)} className="bg-[#FECDD3] hover:bg-[#FDA4AF] text-[#BE123C] px-3 md:px-4 py-1.5 md:py-2 rounded-lg font-black text-xs md:text-sm shadow-[0_2px_0_0_#F43F5E] active:translate-y-1 active:shadow-none hidden md:block ml-2">Tutup Room</button>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function PlayerJoin({ db, onJoin, onBack }) {
+function PlayerJoin({ db, onJoin, onBack, showToast }) {
   const [pin, setPin] = useState(''); 
   const [teamName, setTeamName] = useState('');
   const [joining, setJoining] = useState(false);
@@ -976,8 +909,10 @@ function PlayerJoin({ db, onJoin, onBack }) {
         const currentTeams = data.teams || {};
         if (!currentTeams[teamName]) { currentTeams[teamName] = { score: 0 }; await updateDoc(ref, { teams: currentTeams }); }
         onJoin({ ...data, teams: currentTeams }, teamName);
-      } else alert("PIN tidak valid.");
-    } catch (error) { alert("Gagal bergabung."); } finally { setJoining(false); }
+      } else {
+        showToast("PIN tidak valid atau ruangan sudah ditutup.", "error");
+      }
+    } catch (error) { showToast("Gagal bergabung. Periksa koneksi Anda.", "error"); } finally { setJoining(false); }
   };
 
   return (
@@ -996,20 +931,14 @@ function PlayerJoin({ db, onJoin, onBack }) {
   );
 }
 
-function PlayerPlay({ sessionData, teamName, db, onLeave }) {
+function PlayerPlay({ sessionData, teamName, db, onLeave, showToast }) {
   const [localData, setLocalData] = useState(sessionData);
   const [activeQ, setActiveQ] = useState(null);
   const [guess, setGuess] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bgm] = useState(() => new Audio(SOUNDS.bgm));
-  const [toast, setToast] = useState(null);
   const [hasWon, setHasWon] = useState(false);
-
-  const showToast = (msg, type) => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   useEffect(() => {
     bgm.loop = true;
@@ -1023,12 +952,12 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
     const unsubscribe = onSnapshot(doc(db, 'tts_sessions', localData?.pin || ''), (snap) => {
       if (snap.exists()) setLocalData(snap.data()); 
       else { 
-        alert("Sesi permainan ini telah ditutup oleh Guru."); 
+        showToast("Sesi permainan ini telah ditutup oleh Guru.", "error"); 
         onLeave(); 
       }
     });
     return () => unsubscribe();
-  }, [localData?.pin, db, onLeave]);
+  }, [localData?.pin, db, onLeave, showToast]);
 
   const placedWords = localData?.generatedData?.placedWords || [];
   const revealedWords = localData?.revealedWords || [];
@@ -1092,8 +1021,6 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
 
   return (
     <div className={isFullscreen ? "fixed inset-0 z-50 bg-[#1E293B] p-2 flex flex-col" : "flex flex-col h-[88vh]"}>
-      <Toast toast={toast} />
-      
       <div className="flex-grow flex flex-col lg:flex-row gap-3 overflow-hidden relative mb-2 md:mb-3">
         <div className={`flex-1 flex items-center justify-center relative shadow-inner overflow-hidden rounded-[2rem] ${isFullscreen ? 'bg-transparent' : 'bg-white border-4 border-[#FCE7F3]'}`}>
           <BoardUI gridSize={localData?.gridSize} generatedData={localData?.generatedData} revealedWords={revealedWords} activeWord={activeQ} activeCell={null} userAnswers={{}} onCellClick={(x,y) => {
