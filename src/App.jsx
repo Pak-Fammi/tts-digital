@@ -201,7 +201,7 @@ export default function App() {
   const handleLicenseCheck = (e) => {
     e.preventDefault();
     if (licenseKey === 'GURU123') setView('dashboard');
-    else alert("Kode Lisensi Salah!"); 
+    else alert("Kode Lisensi Salah! (Gunakan: GURU123)"); 
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center text-2xl text-[#14B8A6] font-black animate-pulse">Menyiapkan Arena...</div>;
@@ -242,7 +242,7 @@ export default function App() {
               <form onSubmit={handleLicenseCheck} className="flex flex-col gap-4">
                 <div className="relative">
                   <Key className="w-6 h-6 absolute left-4 top-4 text-[#F472B6]" />
-                  <input type={showPassword ? "text" : "password"} value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} placeholder="Ketik kode" className="w-full pl-12 pr-12 py-4 bg-[#FFF1F2] border-2 border-[#FBCFE8] rounded-2xl font-bold focus:border-[#F472B6] focus:ring-0 outline-none text-slate-700 placeholder-slate-400" required />
+                  <input type={showPassword ? "text" : "password"} value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} placeholder="Kode Guru (GURU123)" className="w-full pl-12 pr-12 py-4 bg-[#FFF1F2] border-2 border-[#FBCFE8] rounded-2xl font-bold focus:border-[#F472B6] focus:ring-0 outline-none text-slate-700 placeholder-slate-400" required />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-slate-400 hover:text-[#F472B6] transition">
                     {showPassword ? <EyeOff className="w-6 h-6"/> : <Eye className="w-6 h-6"/>}
                   </button>
@@ -345,6 +345,7 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
     }
   };
 
+  // FIX: AUTO-FALLBACK AI GENERATOR
   const handleAIGenerate = async () => {
     if (!aiKey) return alert("Masukkan API Key Gemini terlebih dahulu!");
     if (!aiTopic) return alert("Topik soal tidak boleh kosong!");
@@ -355,18 +356,28 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
       const prompt = `Buatkan ${aiCount} pasang kata dan petunjuk soal teka-teki silang (TTS) dengan topik "${aiTopic}". Syarat MUTLAK:
       1. Kata jawaban HANYA terdiri dari huruf A-Z, tanpa spasi, tanpa angka.
       2. Format setiap baris WAJIB persis seperti ini: JAWABAN - Petunjuk soal.
-      3. Jangan ada penomoran, jangan ada teks pembuka/penutup, jangan gunakan format markdown. Langsung berikan daftar katanya saja.
-      Contoh output yang benar:
+      3. Jangan ada penomoran, jangan ada teks pembuka/penutup. Langsung berikan daftar katanya saja.
+      Contoh:
       MATAHARI - Pusat tata surya kita
       BUMI - Planet ketiga dari matahari`;
       
-      // FIX: Mengubah model ke gemini-pro yang lebih tangguh dan didukung universal
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${aiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
-      const data = await res.json();
+      const fetchWithModel = async (modelName) => {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${aiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        return await res.json();
+      };
+
+      // 1. Coba menggunakan model Flash terbaru
+      let data = await fetchWithModel('gemini-1.5-flash');
+      
+      // 2. Fallback: Jika tidak didukung, otomatis coba pakai model lama yang paling stabil
+      if (data.error && data.error.message.toLowerCase().includes('not found')) {
+        data = await fetchWithModel('gemini-1.0-pro');
+      }
+      
       if (data.error) throw new Error(data.error.message);
       
       const text = data.candidates[0].content.parts[0].text;
