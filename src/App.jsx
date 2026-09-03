@@ -232,7 +232,7 @@ export default function App() {
               <form onSubmit={handleLicenseCheck} className="flex flex-col gap-4">
                 <div className="relative">
                   <Key className="w-6 h-6 absolute left-4 top-4 text-[#F472B6]" />
-                  <input type={showPassword ? "text" : "password"} value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} placeholder="Kode Guru (GURU123)" className="w-full pl-12 pr-12 py-4 bg-[#FFF1F2] border-2 border-[#FBCFE8] rounded-2xl font-bold focus:border-[#F472B6] focus:ring-0 outline-none text-slate-700 placeholder-slate-400" required />
+                  <input type={showPassword ? "text" : "password"} value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} placeholder="KETIK KODE" className="w-full pl-12 pr-12 py-4 bg-[#FFF1F2] border-2 border-[#FBCFE8] rounded-2xl font-bold focus:border-[#F472B6] focus:ring-0 outline-none text-slate-700 placeholder-slate-400" required />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-slate-400 hover:text-[#F472B6] transition">
                     {showPassword ? <EyeOff className="w-6 h-6"/> : <Eye className="w-6 h-6"/>}
                   </button>
