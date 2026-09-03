@@ -406,6 +406,7 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
 }
 
 // --- BOARD UI ---
+// --- BOARD UI (DIJAMIN 1 LAYAR PENUH & TANPA SCROLL) ---
 function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, interactive = false, activeWord = null, activeCell = null, userAnswers = {} }) {
   let grid = generatedData?.grid;
   if (!grid && generatedData?.gridString) {
@@ -416,9 +417,20 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
   if (!grid || grid.length === 0) return <div className="text-center p-10 font-black text-slate-400">Papan gagal dibuat. Pastikan kata-katanya bisa bersilangan!</div>;
 
   return (
-    <div className="w-full h-full flex items-start justify-center overflow-auto custom-scrollbar p-4 md:p-8">
-      <div className="bg-[#1E293B] border-4 border-[#0F172A] p-4 md:p-8 rounded-[2rem] shadow-2xl w-max mx-auto" 
-           style={{ display: 'grid', gridTemplateColumns: `repeat(${gridSize}, max-content)`, gap: gridSize >= 15 ? '3px' : '5px' }}>
+    // FIX 1: Menggunakan overflow-hidden agar scrollbar dilarang muncul. Wadah menyesuaikan tinggi/lebar layar.
+    <div className="w-full h-full flex items-center justify-center p-2 md:p-4 overflow-hidden">
+      
+      <div className="bg-[#1E293B] border-4 border-[#0F172A] p-2 md:p-4 rounded-xl md:rounded-[2rem] shadow-2xl" 
+           style={{ 
+             display: 'grid', 
+             gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
+             gridTemplateRows: `repeat(${gridSize}, 1fr)`,
+             // FIX 2: Kunci ukuran di sini! Ambil yang terkecil antara lebar penuh atau sisa tinggi layar.
+             // Ini memaksa papan selalu menjadi persegi sempurna yang muat tepat di 1 layar.
+             width: 'min(100%, calc(100vh - 12rem))',
+             height: 'min(100%, calc(100vh - 12rem))',
+             gap: gridSize >= 15 ? '2px' : '4px' 
+           }}>
         {grid.map((row, y) => row.map((cell, x) => {
             const isBlack = cell === null;
             const startNumber = placedWords.find(w => w.x === x && w.y === y)?.number;
@@ -438,17 +450,18 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
             return (
               <div 
                 key={`${x}-${y}`} 
-                className={`relative flex items-center justify-center font-black text-lg sm:text-2xl lg:text-3xl select-none transition-all duration-150 rounded-md
-                  w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16
-                  ${isBlack ? 'bg-transparent' : 'bg-white border-[2px] md:border-[3px] border-slate-300 shadow-sm text-slate-800'} 
+                // FIX 3: Hapus angka ukuran paksa (seperti w-10). Biarkan w-full h-full mengisi grid otomatis.
+                className={`relative flex items-center justify-center font-black select-none transition-all duration-150 w-full h-full rounded-sm md:rounded-md
+                  text-xs sm:text-base md:text-xl lg:text-2xl
+                  ${isBlack ? 'bg-transparent' : 'bg-white border-[1px] md:border-[2px] border-slate-300 shadow-sm text-slate-800'} 
                   ${!isBlack && interactive ? 'cursor-pointer hover:bg-[#F0F9FF] hover:scale-110 hover:z-10' : ''}
                   ${isPartOfActiveWord && !isRevealed && !isCellActive ? 'bg-[#7DD3FC] border-[#0284C7]' : ''}
-                  ${isCellActive ? 'bg-[#FDE047] border-[#EAB308] ring-4 ring-[#FEF08A] z-20 scale-110 shadow-lg text-yellow-900' : ''}
+                  ${isCellActive ? 'bg-[#FDE047] border-[#EAB308] ring-2 md:ring-4 ring-[#FEF08A] z-20 scale-110 shadow-lg text-yellow-900' : ''}
                   ${isRevealed ? 'bg-[#86EFAC] text-[#14532D] border-[#16A34A]' : ''}
                 `} 
                 onClick={() => { if (!isBlack && interactive && onCellClick) onCellClick(x, y); }}
               >
-                {!isBlack && startNumber && <span className={`absolute top-0.5 left-1 text-[9px] md:text-xs font-black ${isRevealed ? 'text-[#166534]' : 'text-slate-500'}`}>{startNumber}</span>}
+                {!isBlack && startNumber && <span className={`absolute top-[1px] left-[2px] md:top-[2px] md:left-1 text-[7px] md:text-[10px] font-black ${isRevealed ? 'text-[#166534]' : 'text-slate-500'}`}>{startNumber}</span>}
                 {!isBlack && <span className="uppercase animate-fade-in">{displayChar}</span>}
               </div>
             );
