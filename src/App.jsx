@@ -10,7 +10,7 @@ import {
 import { 
   Settings, Users, Play, Plus, Trash2, Edit, Save, 
   LogOut, CheckCircle, XCircle, Trophy, Key, ArrowLeft, ClipboardType,
-  Volume2, VolumeX
+  Volume2, VolumeX, Maximize, Minimize
 } from 'lucide-react';
 
 // --- Konfigurasi Firebase Asli ---
@@ -39,8 +39,8 @@ const SOUNDS = {
 const playSFX = (type, isMuted) => {
   if (isMuted) return;
   const audio = new Audio(SOUNDS[type]);
-  audio.volume = type === 'type' ? 0.3 : 0.6; // Suara ketik lebih pelan
-  audio.play().catch(() => {}); // Abaikan error jika browser memblokir sementara
+  audio.volume = type === 'type' ? 0.3 : 0.6;
+  audio.play().catch(() => {}); 
 };
 
 // --- Mesin Pembuat TTS ---
@@ -183,6 +183,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#FFF1F2] text-slate-800 font-sans selection:bg-[#FBCFE8]">
+      {view !== 'host_play' && view !== 'player_play' && view !== 'solo' && (
       <header className="bg-[#2DD4BF] text-white p-4 mx-4 mt-4 shadow-[0_4px_0_0_#14B8A6] flex justify-between items-center rounded-3xl z-10 relative">
         <div className="flex items-center gap-3">
           <div className="bg-white p-2 rounded-xl shadow-sm">
@@ -196,8 +197,9 @@ export default function App() {
           </button>
         )}
       </header>
+      )}
 
-      <main className="p-2 md:p-4 lg:p-8 max-w-[1400px] mx-auto">
+      <main className={`${view === 'host_play' || view === 'player_play' || view === 'solo' ? 'p-0' : 'p-2 md:p-4 lg:p-8 max-w-[1400px] mx-auto'}`}>
         {view === 'license' && (
           <div className="max-w-md mx-auto mt-16 bg-white p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.05)] border-4 border-[#FCE7F3]">
             <h2 className="text-3xl font-black text-center mb-8 text-[#F472B6]">Selamat Datang!</h2>
@@ -383,7 +385,7 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
   );
 }
 
-// --- BOARD UI (DIJAMIN PERSEGI & PAS 1 LAYAR) ---
+// --- BOARD UI (WARNA GELAP SLATE-800) ---
 function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, interactive = false, activeWord = null, activeCell = null, userAnswers = {} }) {
   let grid = generatedData?.grid;
   if (!grid && generatedData?.gridString) grid = JSON.parse(generatedData.gridString);
@@ -392,8 +394,9 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
   if (!grid || grid.length === 0) return <div className="text-center p-10 font-black text-slate-400">Papan gagal dibuat. Pastikan kata-katanya bisa bersilangan!</div>;
 
   return (
-    <div className="w-full h-full overflow-auto custom-scrollbar p-2 md:p-4">
-      <div className="mx-auto w-full max-w-[85vw] md:max-w-[550px] lg:max-w-[650px] bg-[#E0F2FE] border-4 border-[#7DD3FC] p-2 md:p-4 rounded-2xl md:rounded-[2rem] shadow-[6px_6px_0px_0px_#7DD3FC]" 
+    <div className="w-full h-full flex items-center justify-center overflow-auto custom-scrollbar">
+      {/* Warna latar diubah menjadi Dark Slate (#1E293B) dengan border gelap */}
+      <div className="mx-auto w-full max-w-[95vw] md:max-w-[550px] lg:max-w-[700px] bg-[#1E293B] border-4 border-[#0F172A] p-2 md:p-5 rounded-2xl md:rounded-[2rem] shadow-[6px_6px_0px_0px_#0F172A]" 
            style={{ 
              display: 'grid', 
              gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
@@ -419,21 +422,39 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
               <div 
                 key={`${x}-${y}`} 
                 className={`relative flex items-center justify-center font-black text-sm sm:text-base md:text-xl lg:text-2xl select-none transition-all duration-150 w-full aspect-square rounded-sm md:rounded-md
-                  ${isBlack ? 'bg-transparent' : 'bg-white border-[1.5px] sm:border-2 md:border-[3px] border-slate-200 shadow-sm text-slate-700'} 
-                  ${!isBlack && interactive ? 'cursor-pointer hover:bg-sky-50 hover:scale-110 hover:z-10' : ''}
-                  ${isPartOfActiveWord && !isRevealed && !isCellActive ? 'bg-[#BAE6FD] border-[#38BDF8]' : ''}
-                  ${isCellActive ? 'bg-[#FDE047] border-[#EAB308] ring-2 md:ring-4 ring-[#FEF08A] z-20 scale-110 shadow-md text-yellow-900' : ''}
-                  ${isRevealed ? 'bg-[#86EFAC] text-[#14532D] border-[#22C55E]' : ''}
+                  ${isBlack ? 'bg-transparent' : 'bg-white border-[1.5px] sm:border-2 md:border-[3px] border-slate-300 shadow-sm text-slate-800'} 
+                  ${!isBlack && interactive ? 'cursor-pointer hover:bg-[#F0F9FF] hover:scale-110 hover:z-10' : ''}
+                  ${isPartOfActiveWord && !isRevealed && !isCellActive ? 'bg-[#7DD3FC] border-[#0284C7]' : ''}
+                  ${isCellActive ? 'bg-[#FDE047] border-[#EAB308] ring-2 md:ring-4 ring-[#FEF08A] z-20 scale-110 shadow-lg text-yellow-900' : ''}
+                  ${isRevealed ? 'bg-[#86EFAC] text-[#14532D] border-[#16A34A]' : ''}
                 `} 
                 onClick={() => { if (!isBlack && interactive && onCellClick) onCellClick(x, y); }}
               >
-                {!isBlack && startNumber && <span className={`absolute top-0 left-[2px] md:top-[2px] md:left-1 text-[8px] md:text-[10px] font-black ${isRevealed ? 'text-[#166534]' : 'text-slate-400'}`}>{startNumber}</span>}
+                {!isBlack && startNumber && <span className={`absolute top-0 left-[2px] md:top-[2px] md:left-1 text-[8px] md:text-[10px] font-black ${isRevealed ? 'text-[#166534]' : 'text-slate-500'}`}>{startNumber}</span>}
                 {!isBlack && <span className="uppercase animate-fade-in">{displayChar}</span>}
               </div>
             );
           })
         )}
       </div>
+    </div>
+  );
+}
+
+// --- POP-UP PETUNJUK (UNTUK FULLSCREEN & TAMPILAN KECIL) ---
+function CluePopup({ activeWord, activeCell, setActiveWord, setActiveCell, checkCurrentWord, guess, handleType, isMuted }) {
+  if (!activeWord) return null;
+  return (
+    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[95%] max-w-lg bg-[#38BDF8] border-4 border-[#0284C7] p-5 rounded-[2rem] shadow-[0_10px_40px_rgb(0,0,0,0.4)] z-[60] flex flex-col gap-3 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <span className="text-xs md:text-sm font-black bg-[#FEF08A] text-[#854D0E] px-4 py-1.5 rounded-xl shadow-sm">{activeWord.isHorizontal ? 'MENDATAR' : 'MENURUN'} - {activeWord.number}</span>
+        <button onClick={() => {setActiveWord(null); setActiveCell(null);}} className="bg-white/20 p-2 rounded-xl hover:bg-white/40 transition"><XCircle className="w-6 h-6 text-white"/></button>
+      </div>
+      <p className="text-lg md:text-2xl font-black text-white leading-tight drop-shadow-md mb-2">{activeWord.clue}</p>
+      <form onSubmit={(e) => { e.preventDefault(); checkCurrentWord(); }} className="flex gap-2">
+        <input autoFocus type="text" placeholder={`${activeWord.word.length} HURUF`} className="flex-grow border-4 border-white/50 bg-white rounded-2xl p-4 text-center text-xl font-black uppercase tracking-widest focus:border-white outline-none text-[#0369A1] shadow-inner" value={guess} onChange={handleType} maxLength={activeWord.word.length} />
+        <button type="submit" className="bg-[#A7F3D0] text-[#065F46] px-6 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#059669] active:translate-y-1 active:shadow-none transition">CEK</button>
+      </form>
     </div>
   );
 }
@@ -446,17 +467,14 @@ function PlaySolo({ gamePackage, onBack }) {
   const [activeCell, setActiveCell] = useState(null);
   const [userAnswers, setUserAnswers] = useState({});
   const [isMuted, setIsMuted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [bgm] = useState(() => new Audio(SOUNDS.bgm));
 
-  // Jalankan BGM saat komponen dimount
   useEffect(() => {
     bgm.loop = true;
-    bgm.volume = 0.15; // Sangat pelan, tidak ganggu konsentrasi
-    if (!isMuted) {
-      bgm.play().catch(() => console.log('Autoplay ditahan browser'));
-    } else {
-      bgm.pause();
-    }
+    bgm.volume = 0.15; 
+    if (!isMuted) bgm.play().catch(() => {});
+    else bgm.pause();
     return () => { bgm.pause(); };
   }, [isMuted, bgm]);
 
@@ -468,12 +486,10 @@ function PlaySolo({ gamePackage, onBack }) {
       const key = e.key.toUpperCase();
 
       if (/^[A-Z]$/.test(key) && key.length === 1) {
-        playSFX('type', isMuted);
         setUserAnswers(prev => ({ ...prev, [`${activeCell.x}-${activeCell.y}`]: key }));
         if (activeWord.isHorizontal && activeCell.x < activeWord.x + activeWord.word.length - 1) setActiveCell({ x: activeCell.x + 1, y: activeCell.y });
         else if (!activeWord.isHorizontal && activeCell.y < activeWord.y + activeWord.word.length - 1) setActiveCell({ x: activeCell.x, y: activeCell.y + 1 });
       } else if (e.key === 'Backspace') {
-        playSFX('type', isMuted);
         setUserAnswers(prev => { const next = { ...prev }; delete next[`${activeCell.x}-${activeCell.y}`]; return next; });
         if (activeWord.isHorizontal && activeCell.x > activeWord.x) setActiveCell({ x: activeCell.x - 1, y: activeCell.y });
         else if (!activeWord.isHorizontal && activeCell.y > activeWord.y) setActiveCell({ x: activeCell.x, y: activeCell.y - 1 });
@@ -481,7 +497,7 @@ function PlaySolo({ gamePackage, onBack }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeCell, activeWord, userAnswers, isMuted]);
+  }, [activeCell, activeWord, userAnswers]);
 
   const handleCellClick = (x, y) => {
     const { placedWords } = generatedData;
@@ -503,69 +519,106 @@ function PlaySolo({ gamePackage, onBack }) {
     }
     if (currentGuess.trim().length < activeWord.word.length) return alert("Lengkapi kotaknya!");
     if (currentGuess === activeWord.word) {
-      playSFX('correct', isMuted); // Suara Benar!
+      playSFX('correct', isMuted);
       if (!revealedWords.includes(activeWord.word)) setRevealedWords([...revealedWords, activeWord.word]);
       setActiveWord(null); setActiveCell(null);
     } else {
-      playSFX('wrong', isMuted); // Suara Salah!
+      playSFX('wrong', isMuted);
       alert("Ops, salah. Coba lagi!");
     }
   };
 
-  if (!generatedData) return <div className="flex h-[80vh] items-center justify-center font-black text-2xl text-[#F472B6] animate-pulse">Menyiapkan Papan Ajaib...</div>;
+  const handleType = (e) => {
+    playSFX('type', isMuted);
+    let val = e.target.value.toUpperCase();
+    let idx = 0;
+    const nextAnswers = { ...userAnswers };
+    for (let i = 0; i < activeWord.word.length; i++) {
+      const cx = activeWord.isHorizontal ? activeWord.x + i : activeWord.x;
+      const cy = activeWord.isHorizontal ? activeWord.y : activeWord.y + i;
+      if (idx < val.length) nextAnswers[`${cx}-${cy}`] = val[idx++];
+      else delete nextAnswers[`${cx}-${cy}`];
+    }
+    setUserAnswers(nextAnswers);
+  }
+
+  // Mendapatkan input dari papan untuk dimasukkan ke form Pop-up
+  const getCurrentGuessString = () => {
+    if(!activeWord) return '';
+    let str = '';
+    for (let i = 0; i < activeWord.word.length; i++) {
+      const cx = activeWord.isHorizontal ? activeWord.x + i : activeWord.x;
+      const cy = activeWord.isHorizontal ? activeWord.y : activeWord.y + i;
+      str += (userAnswers[`${cx}-${cy}`] || '');
+    }
+    return str;
+  }
+
+  if (!generatedData) return <div className="flex h-screen items-center justify-center font-black text-2xl text-[#F472B6] animate-pulse">Menyiapkan Papan Ajaib...</div>;
   const isComplete = generatedData.placedWords.length > 0 && revealedWords.length === generatedData.placedWords.length;
 
   return (
-    <div className="flex flex-col h-[88vh]">
-      <div className="flex justify-between items-center mb-4 bg-white p-4 rounded-2xl shadow-sm border-4 border-[#E0F2FE]">
-        <button onClick={onBack} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-500"><ArrowLeft className="w-5 h-5"/></button>
-        <div className="text-center font-black text-xl md:text-2xl text-[#38BDF8] drop-shadow-sm">MODE SOLO</div>
+    <div className={isFullscreen ? "fixed inset-0 z-50 bg-[#1E293B] p-2 md:p-6 flex flex-col" : "flex flex-col h-[88vh]"}>
+      <div className={`flex justify-between items-center mb-4 ${isFullscreen ? 'bg-[#0F172A]' : 'bg-white border-4 border-[#E0F2FE]'} p-4 rounded-2xl shadow-sm transition-colors`}>
+        <button onClick={isFullscreen ? () => setIsFullscreen(false) : onBack} className={`p-2 rounded-xl font-bold transition-all ${isFullscreen ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}><ArrowLeft className="w-5 h-5"/></button>
+        <div className={`text-center font-black text-xl md:text-2xl drop-shadow-sm ${isFullscreen ? 'text-[#38BDF8]' : 'text-[#38BDF8]'}`}>MODE SOLO</div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setIsMuted(!isMuted)} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600">
+          <button onClick={() => setIsMuted(!isMuted)} className={`p-2 rounded-xl transition-all ${isFullscreen ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}>
             {isMuted ? <VolumeX className="w-5 h-5"/> : <Volume2 className="w-5 h-5"/>}
           </button>
-          <button onClick={() => setRevealedWords(generatedData.placedWords.map(w => w.word))} className="bg-[#FEF08A] text-[#854D0E] px-3 py-2 rounded-xl font-black shadow-[0_4px_0_0_#EAB308] active:translate-y-1 active:shadow-none text-sm md:text-base">Buka Semua</button>
+          <button onClick={() => setIsFullscreen(!isFullscreen)} className={`p-2 rounded-xl transition-all ${isFullscreen ? 'bg-sky-500 text-white shadow-[0_3px_0_0_#0284C7]' : 'bg-[#BAE6FD] text-[#0369A1] shadow-[0_3px_0_0_#38BDF8]'}`}>
+            {isFullscreen ? <Minimize className="w-5 h-5"/> : <Maximize className="w-5 h-5"/>}
+          </button>
+          <button onClick={() => setRevealedWords(generatedData.placedWords.map(w => w.word))} className="bg-[#FEF08A] text-[#854D0E] px-3 py-2 rounded-xl font-black shadow-[0_4px_0_0_#EAB308] active:translate-y-1 active:shadow-none text-sm md:text-base ml-2 hidden sm:block">Buka Semua</button>
         </div>
       </div>
       
-      <div className="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden">
-        <div className="flex-1 bg-white rounded-[2rem] border-4 border-[#FCE7F3] flex items-center justify-center relative shadow-inner overflow-hidden">
+      <div className="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden relative">
+        <div className={`flex-1 flex items-center justify-center relative shadow-inner overflow-hidden rounded-[2rem] ${isFullscreen ? 'bg-transparent' : 'bg-white border-4 border-[#FCE7F3]'}`}>
           {isComplete && <div className="absolute inset-0 bg-white/90 z-30 flex flex-col items-center justify-center backdrop-blur-md animate-fade-in"><Trophy className="w-32 h-32 text-yellow-400 mb-6 drop-shadow-lg" /><h2 className="text-5xl font-black text-[#F472B6] tracking-tight">KAMU HEBAT!</h2></div>}
           <BoardUI gridSize={gamePackage.gridSize} generatedData={generatedData} revealedWords={revealedWords} activeWord={activeWord} activeCell={activeCell} userAnswers={userAnswers} onCellClick={handleCellClick} interactive={true} />
         </div>
         
-        <div className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border-4 border-[#E0F2FE] flex flex-col overflow-hidden shadow-sm">
-          {activeWord ? (
-            <div className="p-4 md:p-5 bg-[#38BDF8] text-white border-b-4 border-[#0284C7] shadow-md z-10 animate-fade-in">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-[10px] sm:text-xs font-black bg-[#FEF08A] text-[#854D0E] px-3 py-1.5 rounded-xl shadow-sm">{activeWord.isHorizontal ? 'MENDATAR' : 'MENURUN'} - {activeWord.number}</span>
-                <button onClick={() => {setActiveWord(null); setActiveCell(null);}} className="bg-white/20 p-1.5 rounded-xl hover:bg-white/40"><XCircle className="w-5 h-5"/></button>
+        {/* Kolom Kanan disembunyikan saat Fullscreen */}
+        {!isFullscreen && (
+          <div className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border-4 border-[#E0F2FE] flex flex-col overflow-hidden shadow-sm hidden md:flex">
+            {activeWord ? (
+              <div className="p-4 md:p-5 bg-[#38BDF8] text-white border-b-4 border-[#0284C7] shadow-md z-10 animate-fade-in">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-[10px] sm:text-xs font-black bg-[#FEF08A] text-[#854D0E] px-3 py-1.5 rounded-xl shadow-sm">{activeWord.isHorizontal ? 'MENDATAR' : 'MENURUN'} - {activeWord.number}</span>
+                  <button onClick={() => {setActiveWord(null); setActiveCell(null);}} className="bg-white/20 p-1.5 rounded-xl hover:bg-white/40"><XCircle className="w-5 h-5"/></button>
+                </div>
+                <p className="text-base md:text-lg font-black mb-4 leading-tight drop-shadow-md">{activeWord.clue}</p>
+                <button onClick={checkCurrentWord} className="w-full bg-[#A7F3D0] text-[#065F46] py-3 rounded-2xl font-black text-sm shadow-[0_4px_0_0_#059669] active:translate-y-1 active:shadow-none">CEK JAWABAN</button>
               </div>
-              <p className="text-base md:text-lg font-black mb-4 leading-tight drop-shadow-md">{activeWord.clue}</p>
-              <button onClick={checkCurrentWord} className="w-full bg-[#A7F3D0] text-[#065F46] py-3 rounded-2xl font-black text-sm shadow-[0_4px_0_0_#059669] active:translate-y-1 active:shadow-none">CEK JAWABAN</button>
+            ) : <div className="p-6 bg-slate-50 border-b-4 border-slate-200 text-center flex flex-col items-center justify-center"><div className="w-12 h-12 bg-[#FBCFE8] rounded-[1.5rem] flex items-center justify-center mb-3 shadow-sm"><Play className="w-6 h-6 text-[#F472B6]"/></div><p className="text-slate-500 font-bold text-sm">Klik kotak di papan untuk menjawab.</p></div>}
+            
+            <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-6 bg-white custom-scrollbar">
+              {['Mendatar', 'Menurun'].map((dir, i) => (
+                <div key={dir}>
+                  <h3 className="font-black text-[#94A3B8] mb-3 border-b-4 border-slate-100 pb-1 text-sm uppercase">{dir}</h3>
+                  <ul className="space-y-2">
+                    {generatedData.placedWords.filter(w => (i === 0 ? w.isHorizontal : !w.isHorizontal)).sort((a,b) => a.number - b.number).map(w => {
+                      const isRevealed = revealedWords.includes(w.word);
+                      const isActive = activeWord?.word === w.word;
+                      return (
+                      <li key={w.number} onClick={() => {setActiveWord(w); setActiveCell({x: w.x, y: w.y});}} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 border-4 ${isRevealed ? 'border-[#BBF7D0] bg-[#F0FDF4] opacity-60' : isActive ? 'border-[#38BDF8] bg-[#E0F2FE] scale-[1.02] shadow-md' : 'border-slate-100 bg-white hover:border-[#BAE6FD]'}`}>
+                        <span className={`font-black text-sm mr-2 ${isActive ? 'text-[#0284C7]' : 'text-slate-400'}`}>{w.number}.</span> 
+                        {isRevealed ? <span className="font-black tracking-widest text-[#16A34A] uppercase text-sm">{w.word}</span> : <span className="font-bold text-slate-600 text-sm">{w.clue}</span>}
+                      </li>
+                    )})}
+                  </ul>
+                </div>
+              ))}
             </div>
-          ) : <div className="p-6 bg-slate-50 border-b-4 border-slate-200 text-center flex flex-col items-center justify-center"><div className="w-12 h-12 bg-[#FBCFE8] rounded-[1.5rem] flex items-center justify-center mb-3 shadow-sm"><Play className="w-6 h-6 text-[#F472B6]"/></div><p className="text-slate-500 font-bold text-sm">Klik kotak di papan untuk menjawab.</p></div>}
-          
-          <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-6 bg-white custom-scrollbar">
-            {['Mendatar', 'Menurun'].map((dir, i) => (
-              <div key={dir}>
-                <h3 className="font-black text-[#94A3B8] mb-3 border-b-4 border-slate-100 pb-1 text-sm uppercase">{dir}</h3>
-                <ul className="space-y-2">
-                  {generatedData.placedWords.filter(w => (i === 0 ? w.isHorizontal : !w.isHorizontal)).sort((a,b) => a.number - b.number).map(w => {
-                    const isRevealed = revealedWords.includes(w.word);
-                    const isActive = activeWord?.word === w.word;
-                    return (
-                    <li key={w.number} onClick={() => {setActiveWord(w); setActiveCell({x: w.x, y: w.y});}} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 border-4 ${isRevealed ? 'border-[#BBF7D0] bg-[#F0FDF4] opacity-60' : isActive ? 'border-[#38BDF8] bg-[#E0F2FE] scale-[1.02] shadow-md' : 'border-slate-100 bg-white hover:border-[#BAE6FD]'}`}>
-                      <span className={`font-black text-sm mr-2 ${isActive ? 'text-[#0284C7]' : 'text-slate-400'}`}>{w.number}.</span> 
-                      {isRevealed ? <span className="font-black tracking-widest text-[#16A34A] uppercase text-sm">{w.word}</span> : <span className="font-bold text-slate-600 text-sm">{w.clue}</span>}
-                    </li>
-                  )})}
-                </ul>
-              </div>
-            ))}
           </div>
-        </div>
+        )}
       </div>
+
+      {/* Pop-up Melayang Khusus Fullscreen atau Layar HP */}
+      {(!isFullscreen ? false : true) && activeWord && (
+        <CluePopup activeWord={activeWord} activeCell={activeCell} setActiveWord={setActiveWord} setActiveCell={setActiveCell} checkCurrentWord={checkCurrentWord} guess={getCurrentGuessString()} handleType={handleType} isMuted={isMuted} />
+      )}
     </div>
   );
 }
@@ -609,9 +662,9 @@ function HostLobby({ gamePackage, user, db, onStart, onCancel }) {
 function HostPlay({ sessionPin, db, onEnd }) {
   const [sessionData, setSessionData] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [bgm] = useState(() => new Audio(SOUNDS.bgm));
 
-  // BGM Layar Guru
   useEffect(() => {
     bgm.loop = true;
     bgm.volume = 0.15; 
@@ -633,22 +686,25 @@ function HostPlay({ sessionPin, db, onEnd }) {
   const isComplete = sessionData.generatedData.placedWords.length > 0 && sessionData.revealedWords.length === sessionData.generatedData.placedWords.length;
 
   return (
-    <div className="flex flex-col h-[88vh]">
-      <div className="flex justify-between items-center mb-4 bg-white p-4 md:p-5 rounded-[2rem] shadow-sm border-4 border-[#E0F2FE]">
+    <div className={isFullscreen ? "fixed inset-0 z-50 bg-[#1E293B] p-2 md:p-6 flex flex-col" : "flex flex-col h-[88vh]"}>
+      <div className={`flex justify-between items-center mb-4 ${isFullscreen ? 'bg-[#0F172A]' : 'bg-white border-4 border-[#E0F2FE]'} p-4 md:p-5 rounded-[2rem] shadow-sm transition-colors`}>
         <div>
-          <h2 className="text-xl md:text-3xl font-black text-slate-800">{sessionData.title} <span className="bg-[#F43F5E] text-white text-xs px-2 py-1 rounded-xl ml-2 animate-pulse">LIVE</span></h2>
-          <p className="text-slate-500 font-bold mt-1 text-sm md:text-lg">PIN Masuk: <span className="font-black text-[#38BDF8] text-lg md:text-2xl ml-2">{sessionPin}</span></p>
+          <h2 className={`text-xl md:text-3xl font-black ${isFullscreen ? 'text-white' : 'text-slate-800'}`}>{sessionData.title} <span className="bg-[#F43F5E] text-white text-xs px-2 py-1 rounded-xl ml-2 animate-pulse">LIVE</span></h2>
+          <p className={`font-bold mt-1 text-sm md:text-lg ${isFullscreen ? 'text-slate-400' : 'text-slate-500'}`}>PIN Masuk: <span className="font-black text-[#38BDF8] text-lg md:text-2xl ml-2">{sessionPin}</span></p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => setIsMuted(!isMuted)} className="p-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600">
+          <button onClick={() => setIsMuted(!isMuted)} className={`p-3 rounded-xl transition-all ${isFullscreen ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}>
             {isMuted ? <VolumeX className="w-6 h-6"/> : <Volume2 className="w-6 h-6"/>}
           </button>
-          <button onClick={async () => { if(window.confirm('Tutup ruangan?')) { await deleteDoc(doc(db, 'tts_sessions', sessionPin)); onEnd(); } }} className="bg-[#FECDD3] text-[#BE123C] px-4 md:px-6 py-3 rounded-2xl font-black text-sm md:text-lg shadow-[0_4px_0_0_#F43F5E] active:translate-y-1 active:shadow-none">Tutup Room</button>
+          <button onClick={() => setIsFullscreen(!isFullscreen)} className={`p-3 rounded-xl transition-all ${isFullscreen ? 'bg-sky-500 text-white shadow-[0_3px_0_0_#0284C7]' : 'bg-[#BAE6FD] text-[#0369A1] shadow-[0_3px_0_0_#38BDF8]'}`}>
+            {isFullscreen ? <Minimize className="w-6 h-6"/> : <Maximize className="w-6 h-6"/>}
+          </button>
+          <button onClick={async () => { if(window.confirm('Tutup ruangan?')) { await deleteDoc(doc(db, 'tts_sessions', sessionPin)); onEnd(); } }} className="bg-[#FECDD3] text-[#BE123C] px-4 md:px-6 py-3 rounded-2xl font-black text-sm md:text-lg shadow-[0_4px_0_0_#F43F5E] active:translate-y-1 active:shadow-none hidden md:block">Tutup Room</button>
         </div>
       </div>
 
       <div className="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden">
-        <div className="flex-1 bg-white border-4 border-[#FCE7F3] rounded-[2rem] p-2 md:p-4 flex items-center justify-center overflow-hidden relative shadow-inner">
+        <div className={`flex-1 flex items-center justify-center overflow-hidden relative shadow-inner rounded-[2rem] ${isFullscreen ? 'bg-transparent' : 'bg-white border-4 border-[#FCE7F3]'}`}>
           {isComplete && (
             <div className="absolute inset-0 bg-white/90 z-30 flex flex-col items-center justify-center backdrop-blur-sm animate-fade-in">
               <Trophy className="w-32 h-32 md:w-40 md:h-40 text-yellow-400 mb-6 drop-shadow-xl" />
@@ -664,26 +720,28 @@ function HostPlay({ sessionPin, db, onEnd }) {
           <BoardUI gridSize={sessionData.gridSize} generatedData={sessionData.generatedData} revealedWords={sessionData.revealedWords} interactive={false} />
         </div>
         
-        <div className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border-4 border-[#BBF7D0] flex flex-col overflow-hidden shadow-sm">
-          <div className="bg-[#34D399] text-white p-4 md:p-5 text-center border-b-4 border-[#10B981]">
-            <h3 className="font-black text-xl flex items-center justify-center gap-2"><Trophy className="w-6 h-6"/> Klasemen</h3>
+        {!isFullscreen && (
+          <div className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border-4 border-[#BBF7D0] flex flex-col overflow-hidden shadow-sm hidden md:flex">
+            <div className="bg-[#34D399] text-white p-4 md:p-5 text-center border-b-4 border-[#10B981]">
+              <h3 className="font-black text-xl flex items-center justify-center gap-2"><Trophy className="w-6 h-6"/> Klasemen</h3>
+            </div>
+            <div className="flex-grow overflow-y-auto p-4 bg-[#F0FDF4] custom-scrollbar">
+              {teams.length === 0 ? <p className="text-center text-[#059669] mt-10 font-bold text-sm md:text-base">Menunggu siswa...</p> : (
+                <ul className="space-y-3">
+                  {teams.map((t, i) => (
+                    <li key={t.name} className="bg-white p-3 rounded-2xl shadow-sm border-4 border-[#D1FAE5] flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm ${i === 0 ? 'bg-[#FEF08A] text-[#854D0E]' : 'bg-slate-100 text-slate-500'}`}>{i+1}</span>
+                        <span className="font-black text-sm md:text-base text-slate-700 truncate max-w-[120px]">{t.name}</span>
+                      </div>
+                      <span className="font-black text-lg md:text-xl text-[#059669]">{t.score}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
-          <div className="flex-grow overflow-y-auto p-4 bg-[#F0FDF4] custom-scrollbar">
-            {teams.length === 0 ? <p className="text-center text-[#059669] mt-10 font-bold text-sm md:text-base">Menunggu siswa...</p> : (
-              <ul className="space-y-3">
-                {teams.map((t, i) => (
-                  <li key={t.name} className="bg-white p-3 rounded-2xl shadow-sm border-4 border-[#D1FAE5] flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm ${i === 0 ? 'bg-[#FEF08A] text-[#854D0E]' : 'bg-slate-100 text-slate-500'}`}>{i+1}</span>
-                      <span className="font-black text-sm md:text-base text-slate-700 truncate max-w-[120px]">{t.name}</span>
-                    </div>
-                    <span className="font-black text-lg md:text-xl text-[#059669]">{t.score}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -731,9 +789,9 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
   const [guess, setGuess] = useState('');
   const [feedback, setFeedback] = useState(null); 
   const [isMuted, setIsMuted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [bgm] = useState(() => new Audio(SOUNDS.bgm));
 
-  // BGM Siswa
   useEffect(() => {
     bgm.loop = true;
     bgm.volume = 0.15; 
@@ -798,54 +856,76 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
   );
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col h-[88vh]">
-      <div className="bg-[#38BDF8] text-white rounded-[2rem] shadow-[0_5px_0_0_#0284C7] p-6 mb-6 flex justify-between items-center border-4 border-[#7DD3FC]">
+    <div className={isFullscreen ? "fixed inset-0 z-50 bg-[#1E293B] p-2 md:p-6 flex flex-col" : "flex flex-col h-[88vh]"}>
+      <div className={`flex justify-between items-center mb-4 ${isFullscreen ? 'bg-[#0F172A]' : 'bg-[#38BDF8] border-4 border-[#7DD3FC]'} text-white rounded-[2rem] shadow-[0_5px_0_0_#0284C7] p-4 md:p-6 transition-colors`}>
         <div>
-          <p className="text-sm font-black text-[#BAE6FD] uppercase tracking-wider mb-1">Tim Kamu</p>
+          <p className={`text-sm font-black uppercase tracking-wider mb-1 ${isFullscreen ? 'text-slate-400' : 'text-[#BAE6FD]'}`}>Tim Kamu</p>
           <div className="flex items-center gap-3">
-            <h2 className="text-3xl font-black">{teamName}</h2>
-            <button onClick={() => setIsMuted(!isMuted)} className="p-2 bg-white/20 hover:bg-white/40 rounded-xl ml-2 transition">
-              {isMuted ? <VolumeX className="w-5 h-5"/> : <Volume2 className="w-5 h-5"/>}
-            </button>
+            <h2 className="text-2xl md:text-3xl font-black">{teamName}</h2>
           </div>
         </div>
-        <div className="text-right"><p className="text-sm font-black text-[#BAE6FD] uppercase tracking-wider mb-1">Skor</p><p className="text-4xl font-black">{myScore}</p></div>
-      </div>
-
-      {activeQ ? (
-        <div className="bg-white rounded-[2rem] shadow-sm p-8 border-4 border-[#FCE7F3] mb-6 relative overflow-hidden">
-          {feedback && <div className={`absolute top-0 left-0 w-full p-3 text-center text-white font-black text-lg z-10 ${feedback.type === 'success' ? 'bg-[#34D399]' : 'bg-[#F43F5E]'}`}>{feedback.msg}</div>}
-          <div className="flex justify-between items-center mb-6 mt-4">
-            <span className="text-sm font-black bg-[#FEF08A] text-[#854D0E] px-4 py-2 rounded-xl">{activeQ.isHorizontal?'MENDATAR':'MENURUN'} {activeQ.number}</span>
-            <button onClick={()=>{setActiveQ(null); setFeedback(null);}} className="text-slate-300 hover:text-slate-500"><XCircle className="w-8 h-8"/></button>
-          </div>
-          <p className="text-3xl font-black mb-8 text-slate-800 leading-tight">{activeQ.clue}</p>
-          <form onSubmit={handleSubmit}>
-            <input autoFocus type="text" placeholder={`${activeQ.word.length} HURUF`} className="w-full border-4 border-slate-100 bg-slate-50 rounded-2xl p-5 text-center text-4xl font-black uppercase tracking-widest focus:border-[#38BDF8] outline-none mb-6 text-[#0369A1]" value={guess} onChange={handleType} maxLength={activeQ.word.length} />
-            <button type="submit" className="w-full bg-[#34D399] text-white p-5 rounded-2xl font-black text-2xl shadow-[0_6px_0_0_#059669] active:translate-y-1 active:shadow-none">JAWAB!</button>
-          </form>
+        <div className="flex items-center gap-3">
+          <div className="text-right mr-4"><p className={`text-sm font-black uppercase tracking-wider mb-1 ${isFullscreen ? 'text-slate-400' : 'text-[#BAE6FD]'}`}>Skor</p><p className="text-3xl md:text-4xl font-black">{myScore}</p></div>
+          <button onClick={() => setIsMuted(!isMuted)} className={`p-2 md:p-3 rounded-xl transition ${isFullscreen ? 'bg-slate-700 hover:bg-slate-600' : 'bg-white/20 hover:bg-white/40'}`}>
+            {isMuted ? <VolumeX className="w-5 h-5 md:w-6 md:h-6"/> : <Volume2 className="w-5 h-5 md:w-6 md:h-6"/>}
+          </button>
+          <button onClick={() => setIsFullscreen(!isFullscreen)} className={`p-2 md:p-3 rounded-xl transition ${isFullscreen ? 'bg-sky-500 text-white shadow-[0_3px_0_0_#0284C7]' : 'bg-white text-[#0369A1] shadow-[0_3px_0_0_#BAE6FD]'}`}>
+            {isFullscreen ? <Minimize className="w-5 h-5 md:w-6 md:h-6"/> : <Maximize className="w-5 h-5 md:w-6 md:h-6"/>}
+          </button>
         </div>
-      ) : <div className="bg-white rounded-[2rem] shadow-sm p-8 mb-6 text-center text-slate-400 font-black text-xl border-4 border-slate-100">Pilih soal di bawah! Siapa cepat dia dapat.</div>}
-
-      <div className="flex-grow overflow-y-auto bg-white rounded-[2rem] shadow-sm p-6 border-4 border-[#E0F2FE]">
-        {['Mendatar', 'Menurun'].map((dir, i) => (
-          <div key={dir} className="mb-8">
-            <h4 className="font-black text-[#94A3B8] border-b-4 border-slate-100 pb-2 mb-4 uppercase tracking-widest text-xl">{dir}</h4>
-            <ul className="space-y-4">
-            {localData.generatedData.placedWords.filter(w => (i === 0 ? w.isHorizontal : !w.isHorizontal)).sort((a,b) => a.number - b.number).map(w => {
-              const isAnswered = localData.revealedWords.includes(w.word);
-              return (
-                <li key={w.number} onClick={() => { if(!isAnswered) { playSFX('type', isMuted); setActiveQ(w); } }} className={`p-5 rounded-2xl border-4 flex gap-4 transition-transform ${isAnswered ? 'bg-[#F0FDF4] border-[#BBF7D0] opacity-70' : 'bg-white border-slate-100 cursor-pointer hover:border-[#38BDF8] hover:scale-[1.02]'}`}>
-                  <span className={`font-black text-2xl ${isAnswered ? 'text-[#34D399]' : 'text-[#38BDF8]'}`}>{w.number}.</span>
-                  <span className={`flex-grow font-bold text-xl ${isAnswered ? 'line-through text-slate-400' : 'text-slate-700'}`}>{w.clue}</span>
-                  {isAnswered && <CheckCircle className="text-[#10B981] w-8 h-8 flex-shrink-0" />}
-                </li>
-              )
-            })}
-            </ul>
-          </div>
-        ))}
       </div>
+
+      <div className="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden relative">
+        <div className={`flex-1 flex items-center justify-center relative shadow-inner overflow-hidden rounded-[2rem] ${isFullscreen ? 'bg-transparent' : 'bg-white border-4 border-[#FCE7F3]'}`}>
+          <BoardUI gridSize={localData.gridSize} generatedData={localData.generatedData} revealedWords={localData.revealedWords} activeWord={activeQ} activeCell={null} userAnswers={{}} onCellClick={(x,y) => {
+            const { placedWords } = localData.generatedData;
+            const covering = placedWords.filter(w => (w.isHorizontal && w.y === y && x >= w.x && x < w.x + w.word.length) || (!w.isHorizontal && w.x === x && y >= w.y && y < w.y + w.word.length));
+            if (covering.length > 0 && !localData.revealedWords.includes(covering[0].word)) { playSFX('type', isMuted); setActiveQ(covering[0]); }
+          }} interactive={true} />
+        </div>
+
+        {!isFullscreen && (
+          <div className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border-4 border-[#E0F2FE] flex flex-col overflow-hidden shadow-sm hidden md:flex">
+            {activeQ ? (
+              <div className="p-5 bg-white border-b-4 border-slate-100 shadow-sm z-10 animate-fade-in relative">
+                {feedback && <div className={`absolute top-0 left-0 w-full p-2 text-center text-white font-black text-sm z-10 ${feedback.type === 'success' ? 'bg-[#34D399]' : 'bg-[#F43F5E]'}`}>{feedback.msg}</div>}
+                <div className="flex justify-between items-center mb-4 mt-4">
+                  <span className="text-xs font-black bg-[#FEF08A] text-[#854D0E] px-4 py-2 rounded-xl">{activeQ.isHorizontal?'MENDATAR':'MENURUN'} {activeQ.number}</span>
+                  <button onClick={()=>{setActiveQ(null); setFeedback(null);}} className="text-slate-300 hover:text-slate-500"><XCircle className="w-7 h-7"/></button>
+                </div>
+                <p className="text-xl font-black mb-6 text-slate-800 leading-tight">{activeQ.clue}</p>
+                <form onSubmit={handleSubmit}>
+                  <input autoFocus type="text" placeholder={`${activeQ.word.length} HURUF`} className="w-full border-4 border-slate-100 bg-slate-50 rounded-2xl p-4 text-center text-2xl font-black uppercase tracking-widest focus:border-[#38BDF8] outline-none mb-4 text-[#0369A1]" value={guess} onChange={handleType} maxLength={activeQ.word.length} />
+                  <button type="submit" className="w-full bg-[#34D399] text-white p-4 rounded-2xl font-black text-xl shadow-[0_5px_0_0_#059669] active:translate-y-1 active:shadow-none">JAWAB</button>
+                </form>
+              </div>
+            ) : <div className="p-6 bg-slate-50 border-b-4 border-slate-200 text-center flex flex-col items-center justify-center"><div className="w-12 h-12 bg-[#FBCFE8] rounded-[1.5rem] flex items-center justify-center mb-3 shadow-sm"><Play className="w-6 h-6 text-[#F472B6]"/></div><p className="text-slate-500 font-bold text-sm">Klik kotak di papan untuk menjawab.</p></div>}
+            
+            <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-6 bg-white custom-scrollbar">
+              {['Mendatar', 'Menurun'].map((dir, i) => (
+                <div key={dir}>
+                  <h3 className="font-black text-[#94A3B8] mb-3 border-b-4 border-slate-100 pb-1 text-sm uppercase">{dir}</h3>
+                  <ul className="space-y-2">
+                    {localData.generatedData.placedWords.filter(w => (i === 0 ? w.isHorizontal : !w.isHorizontal)).sort((a,b) => a.number - b.number).map(w => {
+                      const isAnswered = localData.revealedWords.includes(w.word);
+                      const isActive = activeQ?.word === w.word;
+                      return (
+                      <li key={w.number} onClick={() => { if(!isAnswered){ playSFX('type', isMuted); setActiveQ(w); } }} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 border-4 ${isAnswered ? 'border-[#BBF7D0] bg-[#F0FDF4] opacity-60' : isActive ? 'border-[#38BDF8] bg-[#E0F2FE] scale-[1.02] shadow-md' : 'border-slate-100 bg-white hover:border-[#BAE6FD]'}`}>
+                        <span className={`font-black text-sm mr-2 ${isActive ? 'text-[#0284C7]' : 'text-slate-400'}`}>{w.number}.</span> 
+                        {isRevealed ? <span className="font-black tracking-widest text-[#16A34A] uppercase text-sm">{w.word}</span> : <span className="font-bold text-slate-600 text-sm">{w.clue}</span>}
+                      </li>
+                    )})}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {(!isFullscreen ? false : true) && activeQ && (
+        <CluePopup activeWord={activeQ} activeCell={null} setActiveWord={setActiveQ} setActiveCell={()=>{}} checkCurrentWord={handleSubmit} guess={guess} handleType={handleType} isMuted={isMuted} />
+      )}
     </div>
   );
 }
