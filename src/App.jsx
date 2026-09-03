@@ -10,7 +10,7 @@ import {
 import { 
   Settings, Users, Play, Plus, Trash2, Edit, Save, 
   LogOut, CheckCircle, XCircle, Trophy, Key, ArrowLeft, ClipboardType,
-  Volume2, VolumeX, Maximize, Minimize, Eye, EyeOff
+  Volume2, VolumeX, Maximize, Minimize, Eye, EyeOff, Wand2
 } from 'lucide-react';
 
 // --- Konfigurasi Firebase Asli ---
@@ -28,7 +28,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const APP_ID = 'tts-digital-app';
 
-// --- ASET AUDIO (DIPERBARUI DENGAN CLONING ANTI-LAG) ---
+// --- ASET AUDIO ---
 const SOUNDS = {
   type: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
   correct: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3',
@@ -50,7 +50,6 @@ AUDIO_POOL.win.volume = 0.8;
 
 const playSFX = (type, isMuted) => {
   if (isMuted) return;
-  // FIX: Clone audio memungkinkan suara berbunyi bertumpuk saat mengetik cepat
   const sound = AUDIO_POOL[type].cloneNode();
   sound.volume = AUDIO_POOL[type].volume;
   sound.play().catch(() => {}); 
@@ -243,7 +242,7 @@ export default function App() {
               <form onSubmit={handleLicenseCheck} className="flex flex-col gap-4">
                 <div className="relative">
                   <Key className="w-6 h-6 absolute left-4 top-4 text-[#F472B6]" />
-                  <input type={showPassword ? "text" : "password"} value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} placeholder="KETIK KODE" className="w-full pl-12 pr-12 py-4 bg-[#FFF1F2] border-2 border-[#FBCFE8] rounded-2xl font-bold focus:border-[#F472B6] focus:ring-0 outline-none text-slate-700 placeholder-slate-400" required />
+                  <input type={showPassword ? "text" : "password"} value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} placeholder="Kode Guru (GURU123)" className="w-full pl-12 pr-12 py-4 bg-[#FFF1F2] border-2 border-[#FBCFE8] rounded-2xl font-bold focus:border-[#F472B6] focus:ring-0 outline-none text-slate-700 placeholder-slate-400" required />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-slate-400 hover:text-[#F472B6] transition">
                     {showPassword ? <EyeOff className="w-6 h-6"/> : <Eye className="w-6 h-6"/>}
                   </button>
@@ -306,14 +305,20 @@ export default function App() {
   );
 }
 
-// --- GAME EDITOR ---
+// --- GAME EDITOR (DIPERBARUI DENGAN AI GENERATOR) ---
 function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
   const [formData, setFormData] = useState(initialData);
   const [newWord, setNewWord] = useState('');
   const [newClue, setNewClue] = useState('');
   const [saving, setSaving] = useState(false);
-  const [bulkMode, setBulkMode] = useState(false);
+  const [inputMode, setInputMode] = useState('manual'); // manual, bulk, ai
   const [bulkText, setBulkText] = useState('');
+  
+  // State AI Generator
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiCount, setAiCount] = useState(10);
+  const [aiKey, setAiKey] = useState(localStorage.getItem('gemini_api_key') || '');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const addWord = () => {
     if (!newWord.trim() || !newClue.trim()) return;
@@ -336,8 +341,58 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
     });
     if (newWordsList.length > 0) {
        setFormData(prev => ({ ...prev, words: [...prev.words, ...newWordsList] }));
-       setBulkText(''); setBulkMode(false);
+       setBulkText('');
        alert(`Berhasil impor ${newWordsList.length} kata!`);
+    }
+  };
+
+  const handleAIGenerate = async () => {
+    if (!aiKey) return alert("Masukkan API Key Gemini terlebih dahulu!");
+    if (!aiTopic) return alert("Topik soal tidak boleh kosong!");
+    setIsGenerating(true);
+    localStorage.setItem('gemini_api_key', aiKey);
+    
+    try {
+      const prompt = `Buatkan ${aiCount} pasang kata dan petunjuk soal teka-teki silang (TTS) dengan topik "${aiTopic}". Syarat MUTLAK:
+      1. Kata jawaban HANYA terdiri dari huruf A-Z, tanpa spasi, tanpa angka.
+      2. Format setiap baris WAJIB persis seperti ini: JAWABAN - Petunjuk soal.
+      3. Jangan ada penomoran, jangan ada teks pembuka/penutup, jangan gunakan format markdown. Langsung berikan daftar katanya saja.
+      Contoh output yang benar:
+      MATAHARI - Pusat tata surya kita
+      BUMI - Planet ketiga dari matahari`;
+      
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${aiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      
+      const text = data.candidates[0].content.parts[0].text;
+      const lines = text.split('\n');
+      const newWordsList = [];
+      
+      lines.forEach(line => {
+        if (line.includes('-') || line.includes('=') || line.includes(':')) {
+           const parts = line.split(/[-=:]/);
+           const word = parts[0].trim().toUpperCase().replace(/[^A-Z]/g, '');
+           const clue = parts.slice(1).join('-').trim();
+           if (word.length >= 2 && clue.length > 0) newWordsList.push({ word, clue });
+        }
+      });
+      
+      if (newWordsList.length > 0) {
+         setFormData(prev => ({ ...prev, words: [...prev.words, ...newWordsList] }));
+         setAiTopic('');
+         alert(`Magic! ${newWordsList.length} soal AI berhasil ditambahkan!`);
+      } else {
+         alert("Gagal memproses format dari AI. Coba klik Generate lagi.");
+      }
+    } catch (e) {
+      alert("Error AI: " + e.message);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -374,22 +429,48 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
         <div className="bg-[#F0FDF4] p-6 rounded-[2rem] border-4 border-[#BBF7D0]">
           <div className="flex justify-between items-center mb-5">
             <h3 className="font-black text-[#166534] text-xl">Daftar Kata</h3>
-            <button onClick={() => setBulkMode(!bulkMode)} className="text-sm bg-white text-[#059669] px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-sm"><ClipboardType className="w-4 h-4"/> {bulkMode ? 'Ketik Manual' : 'Paste Masal'}</button>
           </div>
 
-          {bulkMode ? (
-            <div className="flex flex-col gap-3 mb-6">
-              <p className="text-xs font-bold text-[#15803D]">Format: JAWABAN - Petunjuk</p>
-              <textarea className="w-full border-2 border-[#86EFAC] rounded-xl p-3 h-32 font-medium outline-none focus:ring-2 focus:ring-[#22C55E]" placeholder="BUMI - Planet tempat kita tinggal" value={bulkText} onChange={e => setBulkText(e.target.value)}></textarea>
-              <button onClick={handleBulkImport} className="bg-[#22C55E] text-white py-3 rounded-xl font-black shadow-[0_4px_0_0_#16A34A] active:translate-y-1 active:shadow-none">Proses Kata</button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 mb-6">
+          {/* Tab Menu Input */}
+          <div className="flex gap-2 mb-5 flex-wrap">
+            <button onClick={() => setInputMode('manual')} className={`text-sm px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-sm transition ${inputMode === 'manual' ? 'bg-[#059669] text-white' : 'bg-white text-[#059669]'}`}><Edit className="w-4 h-4"/> Manual</button>
+            <button onClick={() => setInputMode('bulk')} className={`text-sm px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-sm transition ${inputMode === 'bulk' ? 'bg-[#059669] text-white' : 'bg-white text-[#059669]'}`}><ClipboardType className="w-4 h-4"/> Paste</button>
+            <button onClick={() => setInputMode('ai')} className={`text-sm px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-sm transition ${inputMode === 'ai' ? 'bg-[#7C3AED] text-white border-2 border-[#7C3AED]' : 'bg-purple-50 text-[#7C3AED] border-2 border-[#DDD6FE]'}`}><Wand2 className="w-4 h-4"/> Generate AI</button>
+          </div>
+
+          {inputMode === 'manual' && (
+            <div className="flex flex-col gap-3 mb-6 animate-fade-in">
               <input type="text" placeholder="JAWABAN" className="border-2 border-slate-200 rounded-xl p-3 font-black uppercase text-lg" value={newWord} onChange={e => setNewWord(e.target.value)} />
               <div className="flex gap-2">
                 <input type="text" placeholder="Petunjuk / Clue" className="border-2 border-slate-200 rounded-xl p-3 flex-grow font-semibold" value={newClue} onChange={e => setNewClue(e.target.value)} onKeyDown={e => e.key === 'Enter' && addWord()} />
                 <button onClick={addWord} className="bg-[#38BDF8] text-white px-5 rounded-xl font-black shadow-[0_4px_0_0_#0284C7] active:translate-y-1 active:shadow-none"><Plus className="w-6 h-6"/></button>
               </div>
+            </div>
+          )}
+
+          {inputMode === 'bulk' && (
+            <div className="flex flex-col gap-3 mb-6 animate-fade-in">
+              <p className="text-xs font-bold text-[#15803D]">Format: JAWABAN - Petunjuk</p>
+              <textarea className="w-full border-2 border-[#86EFAC] rounded-xl p-3 h-32 font-medium outline-none focus:ring-2 focus:ring-[#22C55E]" placeholder="BUMI - Planet tempat kita tinggal" value={bulkText} onChange={e => setBulkText(e.target.value)}></textarea>
+              <button onClick={handleBulkImport} className="bg-[#22C55E] text-white py-3 rounded-xl font-black shadow-[0_4px_0_0_#16A34A] active:translate-y-1 active:shadow-none">Proses Kata</button>
+            </div>
+          )}
+
+          {inputMode === 'ai' && (
+            <div className="flex flex-col gap-3 mb-6 bg-purple-50 p-4 rounded-2xl border-2 border-purple-200 animate-fade-in">
+              <p className="text-xs font-bold text-purple-700 mb-1">Dapatkan API Key Gratis di Google AI Studio</p>
+              <input type="password" placeholder="Gemini API Key" className="border-2 border-purple-200 rounded-xl p-3 font-semibold text-sm outline-none focus:border-purple-500" value={aiKey} onChange={e => setAiKey(e.target.value)} />
+              <div className="flex gap-2 mt-2">
+                <input type="text" placeholder="Topik (cth: Pahlawan Nasional)" className="border-2 border-purple-200 rounded-xl p-3 flex-grow font-semibold outline-none focus:border-purple-500" value={aiTopic} onChange={e => setAiTopic(e.target.value)} />
+                <select className="border-2 border-purple-200 rounded-xl p-3 font-bold text-purple-700 outline-none" value={aiCount} onChange={e => setAiCount(Number(e.target.value))}>
+                  <option value={5}>5 Kata</option>
+                  <option value={10}>10 Kata</option>
+                  <option value={15}>15 Kata</option>
+                </select>
+              </div>
+              <button onClick={handleAIGenerate} disabled={isGenerating} className="mt-2 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-black shadow-[0_4px_0_0_#5B21B6] active:translate-y-1 active:shadow-none transition flex justify-center items-center gap-2">
+                {isGenerating ? 'AI Sedang Berpikir...' : <><Wand2 className="w-5 h-5"/> Buat Otomatis</>}
+              </button>
             </div>
           )}
           
@@ -589,13 +670,11 @@ function PlaySolo({ gamePackage, onBack }) {
       const key = e.key.toUpperCase();
 
       if (/^[A-Z]$/.test(key) && key.length === 1) {
-        // FIX: Suara saat ketik di papan langsung
         playSFX('type', isMuted);
         setUserAnswers(prev => ({ ...prev, [`${activeCell.x}-${activeCell.y}`]: key }));
         if (activeWord.isHorizontal && activeCell.x < activeWord.x + activeWord.word.length - 1) setActiveCell({ x: activeCell.x + 1, y: activeCell.y });
         else if (!activeWord.isHorizontal && activeCell.y < activeWord.y + activeWord.word.length - 1) setActiveCell({ x: activeCell.x, y: activeCell.y + 1 });
       } else if (e.key === 'Backspace') {
-        // FIX: Suara saat hapus di papan langsung
         playSFX('type', isMuted);
         setUserAnswers(prev => { const next = { ...prev }; delete next[`${activeCell.x}-${activeCell.y}`]; return next; });
         if (activeWord.isHorizontal && activeCell.x > activeWord.x) setActiveCell({ x: activeCell.x - 1, y: activeCell.y });
@@ -604,7 +683,7 @@ function PlaySolo({ gamePackage, onBack }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeCell, activeWord, userAnswers, isMuted]); // <-- isMuted masuk dependency
+  }, [activeCell, activeWord, userAnswers, isMuted]); 
 
   const handleCellClick = (x, y) => {
     const { placedWords } = generatedData;
