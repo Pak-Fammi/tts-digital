@@ -10,7 +10,7 @@ import {
 import { 
   Settings, Users, Play, Plus, Trash2, Edit, Save, 
   LogOut, CheckCircle, XCircle, Trophy, Key, ArrowLeft, ClipboardType,
-  Volume2, VolumeX, Maximize, Minimize
+  Volume2, VolumeX, Maximize, Minimize, Eye, EyeOff
 } from 'lucide-react';
 
 // --- Konfigurasi Firebase Asli ---
@@ -32,7 +32,8 @@ const APP_ID = 'tts-digital-app';
 const SOUNDS = {
   type: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
   correct: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3',
-  wrong: 'https://assets.mixkit.co/active_storage/sfx/2997/2997-preview.mp3',
+  wrong: 'https://assets.mixkit.co/active_storage/sfx/138/138-preview.mp3', // FIX: Buzzer salah yang lebih greget
+  win: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3', // FIX: Fanfare kemenangan
   bgm: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3'
 };
 
@@ -40,6 +41,7 @@ const playSFX = (type, isMuted) => {
   if (isMuted) return;
   const audio = new Audio(SOUNDS[type]);
   audio.volume = type === 'type' ? 0.3 : 0.6;
+  if (type === 'win') audio.volume = 0.8;
   audio.play().catch(() => {}); 
 };
 
@@ -140,6 +142,17 @@ const generateCrossword = (wordsList, size) => {
   return { grid, placedWords };
 };
 
+// --- Komponen Toast (Pengganti Alert) ---
+function Toast({ toast }) {
+  if (!toast) return null;
+  return (
+    <div className={`fixed top-10 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-4 rounded-2xl font-black text-white text-lg shadow-[0_10px_40px_rgb(0,0,0,0.4)] animate-fade-in flex items-center gap-3 ${toast.type === 'error' ? 'bg-[#F43F5E] border-4 border-[#BE123C]' : 'bg-[#10B981] border-4 border-[#047857]'}`}>
+      {toast.type === 'error' ? <XCircle className="w-6 h-6" /> : <CheckCircle className="w-6 h-6" />}
+      {toast.msg}
+    </div>
+  );
+}
+
 // --- Komponen Utama ---
 export default function App() {
   const [user, setUser] = useState(null);
@@ -150,7 +163,10 @@ export default function App() {
   const [sessionPin, setSessionPin] = useState('');
   const [sessionData, setSessionData] = useState(null);
   const [playerTeam, setPlayerTeam] = useState('');
+  
+  // FIX: State untuk password dan toggle mata
   const [licenseKey, setLicenseKey] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -176,7 +192,7 @@ export default function App() {
   const handleLicenseCheck = (e) => {
     e.preventDefault();
     if (licenseKey === 'GURU123') setView('dashboard');
-    else alert("Kode Lisensi Salah! (Gunakan: GURU123)");
+    else alert("Kode Lisensi Salah! (Gunakan: GURU123)"); // Sengaja tetap alert karena di luar game
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center text-2xl text-[#14B8A6] font-black animate-pulse">Menyiapkan Arena...</div>;
@@ -215,9 +231,13 @@ export default function App() {
               </div>
 
               <form onSubmit={handleLicenseCheck} className="flex flex-col gap-4">
+                {/* FIX: Password field with eye toggle */}
                 <div className="relative">
                   <Key className="w-6 h-6 absolute left-4 top-4 text-[#F472B6]" />
-                  <input type="password" value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} placeholder="Kode Guru (GURU123)" className="w-full pl-12 pr-4 py-4 bg-[#FFF1F2] border-2 border-[#FBCFE8] rounded-2xl font-bold focus:border-[#F472B6] focus:ring-0 outline-none text-slate-700 placeholder-slate-400" required />
+                  <input type={showPassword ? "text" : "password"} value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} placeholder="Kode Guru (GURU123)" className="w-full pl-12 pr-12 py-4 bg-[#FFF1F2] border-2 border-[#FBCFE8] rounded-2xl font-bold focus:border-[#F472B6] focus:ring-0 outline-none text-slate-700 placeholder-slate-400" required />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-slate-400 hover:text-[#F472B6] transition">
+                    {showPassword ? <EyeOff className="w-6 h-6"/> : <Eye className="w-6 h-6"/>}
+                  </button>
                 </div>
                 <button type="submit" className="w-full bg-[#F472B6] hover:bg-[#EC4899] text-white p-4 rounded-2xl font-black text-lg shadow-[0_5px_0_0_#DB2777] active:shadow-none active:translate-y-1 transition-all">Masuk Dasbor</button>
               </form>
@@ -385,26 +405,20 @@ function GameEditor({ initialData, user, db, appId, onSave, onCancel }) {
   );
 }
 
-// --- BOARD UI (WARNA GELAP SLATE-800) ---
-// --- BOARD UI (DIJAMIN LUAS & ANTI POTONG ATAS) ---
+// --- BOARD UI ---
 function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, interactive = false, activeWord = null, activeCell = null, userAnswers = {} }) {
   let grid = generatedData?.grid;
-  if (!grid && generatedData?.gridString) grid = JSON.parse(generatedData.gridString);
+  if (!grid && generatedData?.gridString) {
+    try { grid = JSON.parse(generatedData.gridString); } catch(e) { grid = []; }
+  }
   const placedWords = generatedData?.placedWords || [];
 
   if (!grid || grid.length === 0) return <div className="text-center p-10 font-black text-slate-400">Papan gagal dibuat. Pastikan kata-katanya bisa bersilangan!</div>;
 
   return (
-    // FIX 1: Menggunakan items-start agar saat papan lebih tinggi dari layar, atasnya tetap di titik 0 dan tidak terdorong keluar batas.
     <div className="w-full h-full flex items-start justify-center overflow-auto custom-scrollbar p-4 md:p-8">
-      
-      {/* FIX 2: Menghapus batas lebar (max-w) dan menggantinya dengan w-max agar warna gelap membungkus penuh selebar apa pun papannya */}
       <div className="bg-[#1E293B] border-4 border-[#0F172A] p-4 md:p-8 rounded-[2rem] shadow-2xl w-max mx-auto" 
-           style={{ 
-             display: 'grid', 
-             gridTemplateColumns: `repeat(${gridSize}, max-content)`,
-             gap: gridSize >= 15 ? '3px' : '5px' 
-           }}>
+           style={{ display: 'grid', gridTemplateColumns: `repeat(${gridSize}, max-content)`, gap: gridSize >= 15 ? '3px' : '5px' }}>
         {grid.map((row, y) => row.map((cell, x) => {
             const isBlack = cell === null;
             const startNumber = placedWords.find(w => w.x === x && w.y === y)?.number;
@@ -424,7 +438,6 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
             return (
               <div 
                 key={`${x}-${y}`} 
-                // FIX 3: Ukuran piksel yang solid untuk kotak persegi sempurna
                 className={`relative flex items-center justify-center font-black text-lg sm:text-2xl lg:text-3xl select-none transition-all duration-150 rounded-md
                   w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16
                   ${isBlack ? 'bg-transparent' : 'bg-white border-[2px] md:border-[3px] border-slate-300 shadow-sm text-slate-800'} 
@@ -445,21 +458,17 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
     </div>
   );
 }
-// --- POP-UP PETUNJUK (UNTUK FULLSCREEN & TAMPILAN KECIL) ---
-// --- POP-UP PETUNJUK (BISA DIGESER / DRAGGABLE) ---
+
+// --- POP-UP PETUNJUK ---
 function CluePopup({ activeWord, activeCell, setActiveWord, setActiveCell, checkCurrentWord, guess, handleType, isMuted }) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [rel, setRel] = useState({ x: 0, y: 0 });
 
-  // Reset posisi ke tengah bawah saat ganti soal
-  useEffect(() => {
-    setPos({ x: 0, y: 0 });
-  }, [activeWord]);
+  useEffect(() => { setPos({ x: 0, y: 0 }); }, [activeWord]);
 
   if (!activeWord) return null;
 
-  // Logika Drag & Drop
   const onMouseDown = (e) => {
     setIsDragging(true);
     setRel({ x: e.pageX - pos.x, y: e.pageY - pos.y });
@@ -472,7 +481,6 @@ function CluePopup({ activeWord, activeCell, setActiveWord, setActiveCell, check
     e.stopPropagation(); e.preventDefault();
   };
 
-  // Logika Sentuh untuk HP
   const onTouchStart = (e) => {
     setIsDragging(true);
     setRel({ x: e.touches[0].pageX - pos.x, y: e.touches[0].pageY - pos.y });
@@ -505,26 +513,15 @@ function CluePopup({ activeWord, activeCell, setActiveWord, setActiveCell, check
   return (
     <div 
       className={`fixed z-[60] w-[95%] max-w-md bg-[#38BDF8] border-4 border-[#0284C7] p-5 rounded-[2rem] shadow-[0_10px_40px_rgb(0,0,0,0.6)] flex flex-col gap-3 ${!isDragging && 'animate-fade-in'}`}
-      style={{
-        left: '50%', bottom: '24px',
-        transform: `translate(calc(-50% + ${pos.x}px), ${pos.y}px)`,
-        cursor: isDragging ? 'grabbing' : 'grab'
-      }}
+      style={{ left: '50%', bottom: '24px', transform: `translate(calc(-50% + ${pos.x}px), ${pos.y}px)`, cursor: isDragging ? 'grabbing' : 'grab' }}
       onMouseDown={onMouseDown} onTouchStart={onTouchStart}
     >
       <div className="flex justify-between items-center pb-2">
         <span className="text-xs md:text-sm font-black bg-[#FEF08A] text-[#854D0E] px-4 py-1.5 rounded-xl shadow-sm select-none pointer-events-none">{activeWord.isHorizontal ? 'MENDATAR' : 'MENURUN'} - {activeWord.number}</span>
-        
-        {/* Indikator Grip (Pegangan untuk digeser) */}
-        <div className="flex-1 flex justify-center pointer-events-none">
-          <div className="w-16 h-2 bg-white/40 rounded-full"></div>
-        </div>
-
+        <div className="flex-1 flex justify-center pointer-events-none"><div className="w-16 h-2 bg-white/40 rounded-full"></div></div>
         <button onMouseDown={(e)=>e.stopPropagation()} onTouchStart={(e)=>e.stopPropagation()} onClick={() => {setActiveWord(null); setActiveCell(null);}} className="bg-white/20 p-2 rounded-xl hover:bg-white/40 transition z-10"><XCircle className="w-6 h-6 text-white"/></button>
       </div>
-      
       <p className="text-lg md:text-2xl font-black text-white leading-tight drop-shadow-md mb-2 select-none" onMouseDown={(e)=>e.stopPropagation()} onTouchStart={(e)=>e.stopPropagation()}>{activeWord.clue}</p>
-      
       <form onSubmit={(e) => { e.preventDefault(); checkCurrentWord(); }} className="flex gap-2" onMouseDown={(e)=>e.stopPropagation()} onTouchStart={(e)=>e.stopPropagation()}>
         <input autoFocus type="text" placeholder={`${activeWord.word.length} HURUF`} className="flex-grow border-4 border-white/50 bg-white rounded-2xl p-4 text-center text-xl font-black uppercase tracking-widest focus:border-white outline-none text-[#0369A1] shadow-inner" value={guess} onChange={handleType} maxLength={activeWord.word.length} />
         <button type="submit" className="bg-[#A7F3D0] text-[#065F46] px-6 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#059669] active:translate-y-1 active:shadow-none transition">CEK</button>
@@ -543,6 +540,13 @@ function PlaySolo({ gamePackage, onBack }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bgm] = useState(() => new Audio(SOUNDS.bgm));
+  const [toast, setToast] = useState(null);
+  const [hasWon, setHasWon] = useState(false);
+
+  const showToast = (msg, type) => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     bgm.loop = true;
@@ -553,6 +557,16 @@ function PlaySolo({ gamePackage, onBack }) {
   }, [isMuted, bgm]);
 
   useEffect(() => { setGeneratedData(generateCrossword(gamePackage.words, gamePackage.gridSize)); }, [gamePackage]);
+
+  const isComplete = generatedData?.placedWords?.length > 0 && revealedWords.length === generatedData.placedWords.length;
+
+  // FIX: Mainkan suara menang sekali saja
+  useEffect(() => {
+    if (isComplete && !hasWon) {
+      setHasWon(true);
+      playSFX('win', isMuted);
+    }
+  }, [isComplete, hasWon, isMuted]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -591,14 +605,15 @@ function PlaySolo({ gamePackage, onBack }) {
       const cy = activeWord.isHorizontal ? activeWord.y : activeWord.y + i;
       currentGuess += (userAnswers[`${cx}-${cy}`] || ' ');
     }
-    if (currentGuess.trim().length < activeWord.word.length) return alert("Lengkapi kotaknya!");
+    // FIX: Menggunakan Toast (Bukan Alert)
+    if (currentGuess.trim().length < activeWord.word.length) return showToast("Lengkapi kotaknya!", "error");
     if (currentGuess === activeWord.word) {
       playSFX('correct', isMuted);
       if (!revealedWords.includes(activeWord.word)) setRevealedWords([...revealedWords, activeWord.word]);
       setActiveWord(null); setActiveCell(null);
     } else {
       playSFX('wrong', isMuted);
-      alert("Ops, salah. Coba lagi!");
+      showToast("Ops, salah. Coba lagi!", "error");
     }
   };
 
@@ -616,7 +631,6 @@ function PlaySolo({ gamePackage, onBack }) {
     setUserAnswers(nextAnswers);
   }
 
-  // Mendapatkan input dari papan untuk dimasukkan ke form Pop-up
   const getCurrentGuessString = () => {
     if(!activeWord) return '';
     let str = '';
@@ -629,10 +643,10 @@ function PlaySolo({ gamePackage, onBack }) {
   }
 
   if (!generatedData) return <div className="flex h-screen items-center justify-center font-black text-2xl text-[#F472B6] animate-pulse">Menyiapkan Papan Ajaib...</div>;
-  const isComplete = generatedData.placedWords.length > 0 && revealedWords.length === generatedData.placedWords.length;
 
   return (
     <div className={isFullscreen ? "fixed inset-0 z-50 bg-[#1E293B] p-2 md:p-6 flex flex-col" : "flex flex-col h-[88vh]"}>
+      <Toast toast={toast} />
       <div className={`flex justify-between items-center mb-4 ${isFullscreen ? 'bg-[#0F172A]' : 'bg-white border-4 border-[#E0F2FE]'} p-4 rounded-2xl shadow-sm transition-colors`}>
         <button onClick={isFullscreen ? () => setIsFullscreen(false) : onBack} className={`p-2 rounded-xl font-bold transition-all ${isFullscreen ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}><ArrowLeft className="w-5 h-5"/></button>
         <div className={`text-center font-black text-xl md:text-2xl drop-shadow-sm ${isFullscreen ? 'text-[#38BDF8]' : 'text-[#38BDF8]'}`}>MODE SOLO</div>
@@ -653,7 +667,6 @@ function PlaySolo({ gamePackage, onBack }) {
           <BoardUI gridSize={gamePackage.gridSize} generatedData={generatedData} revealedWords={revealedWords} activeWord={activeWord} activeCell={activeCell} userAnswers={userAnswers} onCellClick={handleCellClick} interactive={true} />
         </div>
         
-        {/* Kolom Kanan disembunyikan saat Fullscreen */}
         {!isFullscreen && (
           <div className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border-4 border-[#E0F2FE] flex flex-col overflow-hidden shadow-sm hidden md:flex">
             {activeWord ? (
@@ -689,9 +702,11 @@ function PlaySolo({ gamePackage, onBack }) {
         )}
       </div>
 
-      {/* Pop-up Melayang Khusus Fullscreen atau Layar HP */}
-      {(!isFullscreen ? false : true) && activeWord && (
-        <CluePopup activeWord={activeWord} activeCell={activeCell} setActiveWord={setActiveWord} setActiveCell={setActiveCell} checkCurrentWord={checkCurrentWord} guess={getCurrentGuessString()} handleType={handleType} isMuted={isMuted} />
+      {/* FIX: Jika di HP, Pop up akan muncul. Jika di desktop, Pop up hanya muncul saat Fullscreen */}
+      {activeWord && (
+        <div className={!isFullscreen ? 'md:hidden' : ''}>
+          <CluePopup activeWord={activeWord} activeCell={activeCell} setActiveWord={setActiveWord} setActiveCell={setActiveCell} checkCurrentWord={checkCurrentWord} guess={getCurrentGuessString()} handleType={handleType} isMuted={isMuted} />
+        </div>
       )}
     </div>
   );
@@ -738,6 +753,7 @@ function HostPlay({ sessionPin, db, onEnd }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bgm] = useState(() => new Audio(SOUNDS.bgm));
+  const [hasWon, setHasWon] = useState(false);
 
   useEffect(() => {
     bgm.loop = true;
@@ -754,10 +770,21 @@ function HostPlay({ sessionPin, db, onEnd }) {
     return () => unsubscribe();
   }, [sessionPin, db]);
 
+  // FIX: Cegah White Screen dengan Optional Chaining
+  const placedWordsCount = sessionData?.generatedData?.placedWords?.length || 0;
+  const revealedWordsCount = sessionData?.revealedWords?.length || 0;
+  const isComplete = placedWordsCount > 0 && revealedWordsCount === placedWordsCount;
+
+  useEffect(() => {
+    if (isComplete && !hasWon) {
+      setHasWon(true);
+      playSFX('win', isMuted);
+    }
+  }, [isComplete, hasWon, isMuted]);
+
   if (!sessionData) return <div className="text-center mt-20 text-3xl font-black text-[#F472B6] animate-pulse">Menyiapkan Arena...</div>;
   
   const teams = Object.entries(sessionData.teams || {}).map(([name, d]) => ({ name, ...d })).sort((a,b) => b.score - a.score);
-  const isComplete = sessionData.generatedData.placedWords.length > 0 && sessionData.revealedWords.length === sessionData.generatedData.placedWords.length;
 
   return (
     <div className={isFullscreen ? "fixed inset-0 z-50 bg-[#1E293B] p-2 md:p-6 flex flex-col" : "flex flex-col h-[88vh]"}>
@@ -791,7 +818,7 @@ function HostPlay({ sessionPin, db, onEnd }) {
               )}
             </div>
           )}
-          <BoardUI gridSize={sessionData.gridSize} generatedData={sessionData.generatedData} revealedWords={sessionData.revealedWords} interactive={false} />
+          <BoardUI gridSize={sessionData?.gridSize} generatedData={sessionData?.generatedData} revealedWords={sessionData?.revealedWords || []} interactive={false} />
         </div>
         
         {!isFullscreen && (
@@ -861,10 +888,16 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
   const [localData, setLocalData] = useState(sessionData);
   const [activeQ, setActiveQ] = useState(null);
   const [guess, setGuess] = useState('');
-  const [feedback, setFeedback] = useState(null); 
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bgm] = useState(() => new Audio(SOUNDS.bgm));
+  const [toast, setToast] = useState(null);
+  const [hasWon, setHasWon] = useState(false);
+
+  const showToast = (msg, type) => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     bgm.loop = true;
@@ -875,39 +908,58 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
   }, [isMuted, bgm]);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'tts_sessions', localData.pin), (snap) => {
+    const unsubscribe = onSnapshot(doc(db, 'tts_sessions', localData?.pin || ''), (snap) => {
       if (snap.exists()) setLocalData(snap.data()); 
-      else { alert("Permainan selesai."); onLeave(); }
+      else { 
+        // FIX: Toast saat permainan ditutup guru
+        alert("Sesi permainan ini telah ditutup oleh Guru."); 
+        onLeave(); 
+      }
     });
     return () => unsubscribe();
-  }, [localData.pin, db, onLeave]);
+  }, [localData?.pin, db, onLeave]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // FIX: Anti-White Screen. Gunakan optional chaining untuk memastikan array selalu terbaca
+  const placedWords = localData?.generatedData?.placedWords || [];
+  const revealedWords = localData?.revealedWords || [];
+  const isComplete = placedWords.length > 0 && revealedWords.length === placedWords.length;
+
+  useEffect(() => {
+    if (isComplete && !hasWon) {
+      setHasWon(true);
+      playSFX('win', isMuted);
+    }
+  }, [isComplete, hasWon, isMuted]);
+
+  const handleSubmit = async () => {
     const answer = guess.trim().toUpperCase();
+    if (answer.length < activeQ.word.length) {
+       return showToast("Lengkapi kotaknya!", "error");
+    }
+
     if (answer === activeQ.word) {
       try {
         const ref = doc(db, 'tts_sessions', localData.pin);
         const snap = await getDoc(ref);
         if (snap.exists()) {
           const currentData = snap.data();
-          if (!currentData.revealedWords.includes(activeQ.word)) {
-             const newTeams = { ...currentData.teams };
+          if (!(currentData.revealedWords || []).includes(activeQ.word)) {
+             const newTeams = { ...(currentData.teams || {}) };
+             if (!newTeams[teamName]) newTeams[teamName] = { score: 0 };
              newTeams[teamName].score += 10;
-             await updateDoc(ref, { revealedWords: [...currentData.revealedWords, activeQ.word], teams: newTeams });
+             await updateDoc(ref, { revealedWords: [...(currentData.revealedWords || []), activeQ.word], teams: newTeams });
              playSFX('correct', isMuted);
-             setFeedback({ type: 'success', msg: 'BENAR! +10 Poin' });
+             showToast('BENAR! +10 Poin', 'success');
           } else {
              playSFX('wrong', isMuted);
-             setFeedback({ type: 'error', msg: 'Keduluan tim lain!' });
+             showToast('Keduluan tim lain!', 'error');
           }
         }
       } catch (err) {}
-      setTimeout(() => { setActiveQ(null); setFeedback(null); setGuess(''); }, 2000);
+      setTimeout(() => { setActiveQ(null); setGuess(''); }, 1500);
     } else { 
       playSFX('wrong', isMuted);
-      setFeedback({ type: 'error', msg: 'Salah!' }); 
-      setTimeout(() => setFeedback(null), 2000); 
+      showToast('Ops, salah. Coba lagi!', 'error'); 
     }
   };
 
@@ -916,8 +968,7 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
     setGuess(e.target.value.toUpperCase());
   }
 
-  const myScore = localData.teams?.[teamName]?.score || 0;
-  const isComplete = localData.generatedData.placedWords.length > 0 && localData.revealedWords.length === localData.generatedData.placedWords.length;
+  const myScore = localData?.teams?.[teamName]?.score || 0;
 
   if (isComplete) return (
     <div className="max-w-md mx-auto mt-20 bg-white p-10 rounded-[2rem] shadow-sm text-center border-4 border-[#FCE7F3]">
@@ -925,12 +976,13 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
       <h2 className="text-4xl font-black text-[#F472B6]">Selesai!</h2>
       <p className="text-2xl font-bold mt-6 text-slate-600">Skor Akhir:</p>
       <p className="text-7xl font-black text-[#0369A1] mt-4">{myScore}</p>
-      <button onClick={onLeave} className="mt-10 bg-slate-100 w-full p-4 rounded-2xl font-black text-xl text-slate-500">Keluar</button>
+      <button onClick={onLeave} className="mt-10 bg-slate-100 hover:bg-slate-200 transition w-full p-4 rounded-2xl font-black text-xl text-slate-500">Keluar</button>
     </div>
   );
 
   return (
     <div className={isFullscreen ? "fixed inset-0 z-50 bg-[#1E293B] p-2 md:p-6 flex flex-col" : "flex flex-col h-[88vh]"}>
+      <Toast toast={toast} />
       <div className={`flex justify-between items-center mb-4 ${isFullscreen ? 'bg-[#0F172A]' : 'bg-[#38BDF8] border-4 border-[#7DD3FC]'} text-white rounded-[2rem] shadow-[0_5px_0_0_#0284C7] p-4 md:p-6 transition-colors`}>
         <div>
           <p className={`text-sm font-black uppercase tracking-wider mb-1 ${isFullscreen ? 'text-slate-400' : 'text-[#BAE6FD]'}`}>Tim Kamu</p>
@@ -939,7 +991,7 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-right mr-4"><p className={`text-sm font-black uppercase tracking-wider mb-1 ${isFullscreen ? 'text-slate-400' : 'text-[#BAE6FD]'}`}>Skor</p><p className="text-3xl md:text-4xl font-black">{myScore}</p></div>
+          <div className="text-right mr-2 md:mr-4"><p className={`text-sm font-black uppercase tracking-wider mb-1 ${isFullscreen ? 'text-slate-400' : 'text-[#BAE6FD]'}`}>Skor</p><p className="text-3xl md:text-4xl font-black">{myScore}</p></div>
           <button onClick={() => setIsMuted(!isMuted)} className={`p-2 md:p-3 rounded-xl transition ${isFullscreen ? 'bg-slate-700 hover:bg-slate-600' : 'bg-white/20 hover:bg-white/40'}`}>
             {isMuted ? <VolumeX className="w-5 h-5 md:w-6 md:h-6"/> : <Volume2 className="w-5 h-5 md:w-6 md:h-6"/>}
           </button>
@@ -951,10 +1003,9 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
 
       <div className="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden relative">
         <div className={`flex-1 flex items-center justify-center relative shadow-inner overflow-hidden rounded-[2rem] ${isFullscreen ? 'bg-transparent' : 'bg-white border-4 border-[#FCE7F3]'}`}>
-          <BoardUI gridSize={localData.gridSize} generatedData={localData.generatedData} revealedWords={localData.revealedWords} activeWord={activeQ} activeCell={null} userAnswers={{}} onCellClick={(x,y) => {
-            const { placedWords } = localData.generatedData;
+          <BoardUI gridSize={localData?.gridSize} generatedData={localData?.generatedData} revealedWords={revealedWords} activeWord={activeQ} activeCell={null} userAnswers={{}} onCellClick={(x,y) => {
             const covering = placedWords.filter(w => (w.isHorizontal && w.y === y && x >= w.x && x < w.x + w.word.length) || (!w.isHorizontal && w.x === x && y >= w.y && y < w.y + w.word.length));
-            if (covering.length > 0 && !localData.revealedWords.includes(covering[0].word)) { playSFX('type', isMuted); setActiveQ(covering[0]); }
+            if (covering.length > 0 && !revealedWords.includes(covering[0].word)) { playSFX('type', isMuted); setActiveQ(covering[0]); }
           }} interactive={true} />
         </div>
 
@@ -962,13 +1013,12 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
           <div className="w-full lg:w-[320px] shrink-0 bg-white rounded-[2rem] border-4 border-[#E0F2FE] flex flex-col overflow-hidden shadow-sm hidden md:flex">
             {activeQ ? (
               <div className="p-5 bg-white border-b-4 border-slate-100 shadow-sm z-10 animate-fade-in relative">
-                {feedback && <div className={`absolute top-0 left-0 w-full p-2 text-center text-white font-black text-sm z-10 ${feedback.type === 'success' ? 'bg-[#34D399]' : 'bg-[#F43F5E]'}`}>{feedback.msg}</div>}
-                <div className="flex justify-between items-center mb-4 mt-4">
+                <div className="flex justify-between items-center mb-4 mt-2">
                   <span className="text-xs font-black bg-[#FEF08A] text-[#854D0E] px-4 py-2 rounded-xl">{activeQ.isHorizontal?'MENDATAR':'MENURUN'} {activeQ.number}</span>
-                  <button onClick={()=>{setActiveQ(null); setFeedback(null);}} className="text-slate-300 hover:text-slate-500"><XCircle className="w-7 h-7"/></button>
+                  <button onClick={()=>{setActiveQ(null);}} className="text-slate-300 hover:text-slate-500"><XCircle className="w-7 h-7"/></button>
                 </div>
                 <p className="text-xl font-black mb-6 text-slate-800 leading-tight">{activeQ.clue}</p>
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
                   <input autoFocus type="text" placeholder={`${activeQ.word.length} HURUF`} className="w-full border-4 border-slate-100 bg-slate-50 rounded-2xl p-4 text-center text-2xl font-black uppercase tracking-widest focus:border-[#38BDF8] outline-none mb-4 text-[#0369A1]" value={guess} onChange={handleType} maxLength={activeQ.word.length} />
                   <button type="submit" className="w-full bg-[#34D399] text-white p-4 rounded-2xl font-black text-xl shadow-[0_5px_0_0_#059669] active:translate-y-1 active:shadow-none">JAWAB</button>
                 </form>
@@ -980,11 +1030,11 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
                 <div key={dir}>
                   <h3 className="font-black text-[#94A3B8] mb-3 border-b-4 border-slate-100 pb-1 text-sm uppercase">{dir}</h3>
                   <ul className="space-y-2">
-                    {localData.generatedData.placedWords.filter(w => (i === 0 ? w.isHorizontal : !w.isHorizontal)).sort((a,b) => a.number - b.number).map(w => {
-                      const isAnswered = localData.revealedWords.includes(w.word);
+                    {placedWords.filter(w => (i === 0 ? w.isHorizontal : !w.isHorizontal)).sort((a,b) => a.number - b.number).map(w => {
+                      const isAnswered = revealedWords.includes(w.word);
                       const isActive = activeQ?.word === w.word;
                       return (
-                      <li key={w.number} onClick={() => { if(!isAnswered){ playSFX('type', isMuted); setActiveQ(w); } }} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 border-4 ${isAnswered ? 'border-[#BBF7D0] bg-[#F0FDF4] opacity-60' : isActive ? 'border-[#38BDF8] bg-[#E0F2FE] scale-[1.02] shadow-md' : 'border-slate-100 bg-white hover:border-[#BAE6FD]'}`}>
+                      <li key={w.number} onClick={() => { if(!isAnswered){ playSFX('type', isMuted); setActiveQ(w); setGuess(''); } }} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 border-4 ${isAnswered ? 'border-[#BBF7D0] bg-[#F0FDF4] opacity-60' : isActive ? 'border-[#38BDF8] bg-[#E0F2FE] scale-[1.02] shadow-md' : 'border-slate-100 bg-white hover:border-[#BAE6FD]'}`}>
                         <span className={`font-black text-sm mr-2 ${isActive ? 'text-[#0284C7]' : 'text-slate-400'}`}>{w.number}.</span> 
                         {isRevealed ? <span className="font-black tracking-widest text-[#16A34A] uppercase text-sm">{w.word}</span> : <span className="font-bold text-slate-600 text-sm">{w.clue}</span>}
                       </li>
@@ -997,8 +1047,10 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
         )}
       </div>
 
-      {(!isFullscreen ? false : true) && activeQ && (
-        <CluePopup activeWord={activeQ} activeCell={null} setActiveWord={setActiveQ} setActiveCell={()=>{}} checkCurrentWord={handleSubmit} guess={guess} handleType={handleType} isMuted={isMuted} />
+      {activeQ && (
+        <div className={!isFullscreen ? 'md:hidden' : ''}>
+          <CluePopup activeWord={activeQ} activeCell={null} setActiveWord={setActiveQ} setActiveCell={()=>{}} checkCurrentWord={handleSubmit} guess={guess} handleType={handleType} isMuted={isMuted} />
+        </div>
       )}
     </div>
   );
