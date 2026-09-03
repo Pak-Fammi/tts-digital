@@ -28,7 +28,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const APP_ID = 'tts-digital-app';
 
-// --- ASET AUDIO ---
+// --- ASET AUDIO (DIPERBARUI DENGAN CLONING ANTI-LAG) ---
 const SOUNDS = {
   type: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
   correct: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3',
@@ -37,12 +37,23 @@ const SOUNDS = {
   bgm: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3'
 };
 
+const AUDIO_POOL = {
+  type: new Audio(SOUNDS.type),
+  correct: new Audio(SOUNDS.correct),
+  wrong: new Audio(SOUNDS.wrong),
+  win: new Audio(SOUNDS.win)
+};
+AUDIO_POOL.type.volume = 0.3;
+AUDIO_POOL.correct.volume = 0.6;
+AUDIO_POOL.wrong.volume = 0.6;
+AUDIO_POOL.win.volume = 0.8;
+
 const playSFX = (type, isMuted) => {
   if (isMuted) return;
-  const audio = new Audio(SOUNDS[type]);
-  audio.volume = type === 'type' ? 0.3 : 0.6;
-  if (type === 'win') audio.volume = 0.8;
-  audio.play().catch(() => {}); 
+  // FIX: Clone audio memungkinkan suara berbunyi bertumpuk saat mengetik cepat
+  const sound = AUDIO_POOL[type].cloneNode();
+  sound.volume = AUDIO_POOL[type].volume;
+  sound.play().catch(() => {}); 
 };
 
 // --- Mesin Pembuat TTS ---
@@ -420,7 +431,6 @@ function BoardUI({ gridSize, generatedData, revealedWords = [], onCellClick, int
              display: 'grid', 
              gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
              gridTemplateRows: `repeat(${gridSize}, 1fr)`,
-             // FIX: Menambah batas tinggi agar muat dengan footer kecil di bawah
              width: 'min(100%, calc(100vh - 7rem))',
              height: 'min(100%, calc(100vh - 7rem))',
              gap: gridSize >= 15 ? '2px' : '4px' 
@@ -579,10 +589,14 @@ function PlaySolo({ gamePackage, onBack }) {
       const key = e.key.toUpperCase();
 
       if (/^[A-Z]$/.test(key) && key.length === 1) {
+        // FIX: Suara saat ketik di papan langsung
+        playSFX('type', isMuted);
         setUserAnswers(prev => ({ ...prev, [`${activeCell.x}-${activeCell.y}`]: key }));
         if (activeWord.isHorizontal && activeCell.x < activeWord.x + activeWord.word.length - 1) setActiveCell({ x: activeCell.x + 1, y: activeCell.y });
         else if (!activeWord.isHorizontal && activeCell.y < activeWord.y + activeWord.word.length - 1) setActiveCell({ x: activeCell.x, y: activeCell.y + 1 });
       } else if (e.key === 'Backspace') {
+        // FIX: Suara saat hapus di papan langsung
+        playSFX('type', isMuted);
         setUserAnswers(prev => { const next = { ...prev }; delete next[`${activeCell.x}-${activeCell.y}`]; return next; });
         if (activeWord.isHorizontal && activeCell.x > activeWord.x) setActiveCell({ x: activeCell.x - 1, y: activeCell.y });
         else if (!activeWord.isHorizontal && activeCell.y > activeWord.y) setActiveCell({ x: activeCell.x, y: activeCell.y - 1 });
@@ -590,7 +604,7 @@ function PlaySolo({ gamePackage, onBack }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeCell, activeWord, userAnswers]);
+  }, [activeCell, activeWord, userAnswers, isMuted]); // <-- isMuted masuk dependency
 
   const handleCellClick = (x, y) => {
     const { placedWords } = generatedData;
@@ -652,7 +666,6 @@ function PlaySolo({ gamePackage, onBack }) {
     <div className={isFullscreen ? "fixed inset-0 z-50 bg-[#1E293B] p-2 flex flex-col" : "flex flex-col h-[88vh]"}>
       <Toast toast={toast} />
       
-      {/* FIX: Arena TTS diletakkan di atas */}
       <div className="flex-grow flex flex-col lg:flex-row gap-3 overflow-hidden relative mb-2 md:mb-3">
         <div className={`flex-1 flex items-center justify-center relative shadow-inner overflow-hidden rounded-[2rem] ${isFullscreen ? 'bg-transparent' : 'bg-white border-4 border-[#FCE7F3]'}`}>
           {isComplete && <div className="absolute inset-0 bg-white/90 z-30 flex flex-col items-center justify-center backdrop-blur-md animate-fade-in"><Trophy className="w-32 h-32 text-yellow-400 mb-6 drop-shadow-lg" /><h2 className="text-5xl font-black text-[#F472B6] tracking-tight">KAMU HEBAT!</h2></div>}
@@ -694,7 +707,6 @@ function PlaySolo({ gamePackage, onBack }) {
         )}
       </div>
 
-      {/* FIX: Header/Footer kecil diletakkan di bawah (shrink-0 agar tidak mengecil) */}
       <div className={`flex justify-between items-center shrink-0 ${isFullscreen ? 'bg-[#0F172A]' : 'bg-white border-2 md:border-4 border-[#E0F2FE]'} p-2 md:px-4 rounded-xl md:rounded-2xl shadow-sm transition-colors`}>
         <button onClick={isFullscreen ? () => setIsFullscreen(false) : onBack} className={`p-1.5 md:p-2 rounded-lg font-bold transition-all ${isFullscreen ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}><ArrowLeft className="w-4 h-4 md:w-5 md:h-5"/></button>
         <div className={`text-center font-black text-sm md:text-lg drop-shadow-sm ${isFullscreen ? 'text-[#38BDF8]' : 'text-[#38BDF8]'}`}>MODE SOLO</div>
@@ -791,8 +803,6 @@ function HostPlay({ sessionPin, db, onEnd }) {
 
   return (
     <div className={isFullscreen ? "fixed inset-0 z-50 bg-[#1E293B] p-2 flex flex-col" : "flex flex-col h-[88vh]"}>
-      
-      {/* ARENA KE ATAS */}
       <div className="flex-grow flex flex-col lg:flex-row gap-3 overflow-hidden mb-2 md:mb-3">
         <div className={`flex-1 flex items-center justify-center overflow-hidden relative shadow-inner rounded-[2rem] ${isFullscreen ? 'bg-transparent' : 'bg-white border-4 border-[#FCE7F3]'}`}>
           {isComplete && (
@@ -834,7 +844,6 @@ function HostPlay({ sessionPin, db, onEnd }) {
         )}
       </div>
 
-      {/* FOOTER KE BAWAH */}
       <div className={`flex justify-between items-center shrink-0 ${isFullscreen ? 'bg-[#0F172A]' : 'bg-white border-2 md:border-4 border-[#E0F2FE]'} p-2 md:px-4 rounded-xl md:rounded-2xl shadow-sm transition-colors`}>
         <div className="flex items-center gap-1.5 md:gap-3">
           <h2 className={`text-sm md:text-lg font-black ${isFullscreen ? 'text-white' : 'text-slate-800'}`}>{sessionData.title} <span className="bg-[#F43F5E] text-white text-[9px] md:text-[10px] px-2 py-0.5 rounded-lg ml-1 animate-pulse">LIVE</span></h2>
@@ -988,7 +997,6 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
     <div className={isFullscreen ? "fixed inset-0 z-50 bg-[#1E293B] p-2 flex flex-col" : "flex flex-col h-[88vh]"}>
       <Toast toast={toast} />
       
-      {/* ARENA DI ATAS */}
       <div className="flex-grow flex flex-col lg:flex-row gap-3 overflow-hidden relative mb-2 md:mb-3">
         <div className={`flex-1 flex items-center justify-center relative shadow-inner overflow-hidden rounded-[2rem] ${isFullscreen ? 'bg-transparent' : 'bg-white border-4 border-[#FCE7F3]'}`}>
           <BoardUI gridSize={localData?.gridSize} generatedData={localData?.generatedData} revealedWords={revealedWords} activeWord={activeQ} activeCell={null} userAnswers={{}} onCellClick={(x,y) => {
@@ -1001,30 +1009,30 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
           <div className="w-full lg:w-[300px] shrink-0 bg-white rounded-[2rem] border-4 border-[#E0F2FE] flex flex-col overflow-hidden shadow-sm hidden md:flex">
             {activeQ ? (
               <div className="p-4 bg-white border-b-4 border-slate-100 shadow-sm z-10 animate-fade-in relative">
-                <div className="flex justify-between items-center mb-3 mt-1">
-                  <span className="text-[10px] font-black bg-[#FEF08A] text-[#854D0E] px-3 py-1.5 rounded-lg">{activeQ.isHorizontal?'MENDATAR':'MENURUN'} {activeQ.number}</span>
-                  <button onClick={()=>{setActiveQ(null);}} className="text-slate-300 hover:text-slate-500"><XCircle className="w-5 h-5"/></button>
+                <div className="flex justify-between items-center mb-4 mt-2">
+                  <span className="text-xs font-black bg-[#FEF08A] text-[#854D0E] px-4 py-2 rounded-xl">{activeQ.isHorizontal?'MENDATAR':'MENURUN'} {activeQ.number}</span>
+                  <button onClick={()=>{setActiveQ(null);}} className="text-slate-300 hover:text-slate-500"><XCircle className="w-7 h-7"/></button>
                 </div>
-                <p className="text-base font-black mb-4 text-slate-800 leading-tight">{activeQ.clue}</p>
+                <p className="text-xl font-black mb-6 text-slate-800 leading-tight">{activeQ.clue}</p>
                 <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
-                  <input autoFocus type="text" placeholder={`${activeQ.word.length} HURUF`} className="w-full border-4 border-slate-100 bg-slate-50 rounded-xl p-3 text-center text-lg font-black uppercase tracking-widest focus:border-[#38BDF8] outline-none mb-3 text-[#0369A1]" value={guess} onChange={handleType} maxLength={activeQ.word.length} />
-                  <button type="submit" className="w-full bg-[#34D399] text-white p-3 rounded-xl font-black text-sm shadow-[0_4px_0_0_#059669] active:translate-y-1 active:shadow-none">JAWAB</button>
+                  <input autoFocus type="text" placeholder={`${activeQ.word.length} HURUF`} className="w-full border-4 border-slate-100 bg-slate-50 rounded-2xl p-4 text-center text-2xl font-black uppercase tracking-widest focus:border-[#38BDF8] outline-none mb-4 text-[#0369A1]" value={guess} onChange={handleType} maxLength={activeQ.word.length} />
+                  <button type="submit" className="w-full bg-[#34D399] text-white p-4 rounded-2xl font-black text-xl shadow-[0_5px_0_0_#059669] active:translate-y-1 active:shadow-none">JAWAB</button>
                 </form>
               </div>
-            ) : <div className="p-4 bg-slate-50 border-b-4 border-slate-200 text-center flex flex-col items-center justify-center"><div className="w-8 h-8 bg-[#FBCFE8] rounded-full flex items-center justify-center mb-2 shadow-sm"><Play className="w-4 h-4 text-[#F472B6]"/></div><p className="text-slate-500 font-bold text-xs">Klik kotak di papan.</p></div>}
+            ) : <div className="p-6 bg-slate-50 border-b-4 border-slate-200 text-center flex flex-col items-center justify-center"><div className="w-12 h-12 bg-[#FBCFE8] rounded-[1.5rem] flex items-center justify-center mb-3 shadow-sm"><Play className="w-6 h-6 text-[#F472B6]"/></div><p className="text-slate-500 font-bold text-sm">Klik kotak di papan untuk menjawab.</p></div>}
             
-            <div className="flex-grow overflow-y-auto p-3 flex flex-col gap-4 bg-white custom-scrollbar">
+            <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-6 bg-white custom-scrollbar">
               {['Mendatar', 'Menurun'].map((dir, i) => (
                 <div key={dir}>
-                  <h3 className="font-black text-[#94A3B8] mb-2 border-b-2 border-slate-100 pb-1 text-xs uppercase">{dir}</h3>
+                  <h3 className="font-black text-[#94A3B8] mb-3 border-b-4 border-slate-100 pb-1 text-sm uppercase">{dir}</h3>
                   <ul className="space-y-2">
                     {placedWords.filter(w => (i === 0 ? w.isHorizontal : !w.isHorizontal)).sort((a,b) => a.number - b.number).map(w => {
                       const isAnswered = revealedWords.includes(w.word);
                       const isActive = activeQ?.word === w.word;
                       return (
-                      <li key={w.number} onClick={() => { if(!isAnswered){ playSFX('type', isMuted); setActiveQ(w); setGuess(''); } }} className={`p-2 rounded-xl cursor-pointer transition-all duration-200 border-2 md:border-4 ${isAnswered ? 'border-[#BBF7D0] bg-[#F0FDF4] opacity-60' : isActive ? 'border-[#38BDF8] bg-[#E0F2FE] scale-[1.02] shadow-sm' : 'border-slate-100 bg-white hover:border-[#BAE6FD]'}`}>
-                        <span className={`font-black text-xs mr-1 ${isActive ? 'text-[#0284C7]' : 'text-slate-400'}`}>{w.number}.</span> 
-                        {isRevealed ? <span className="font-black tracking-widest text-[#16A34A] uppercase text-xs">{w.word}</span> : <span className="font-bold text-slate-600 text-xs">{w.clue}</span>}
+                      <li key={w.number} onClick={() => { if(!isAnswered){ playSFX('type', isMuted); setActiveQ(w); setGuess(''); } }} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 border-4 ${isAnswered ? 'border-[#BBF7D0] bg-[#F0FDF4] opacity-60' : isActive ? 'border-[#38BDF8] bg-[#E0F2FE] scale-[1.02] shadow-md' : 'border-slate-100 bg-white hover:border-[#BAE6FD]'}`}>
+                        <span className={`font-black text-sm mr-2 ${isActive ? 'text-[#0284C7]' : 'text-slate-400'}`}>{w.number}.</span> 
+                        {isRevealed ? <span className="font-black tracking-widest text-[#16A34A] uppercase text-sm">{w.word}</span> : <span className="font-bold text-slate-600 text-sm">{w.clue}</span>}
                       </li>
                     )})}
                   </ul>
@@ -1035,7 +1043,6 @@ function PlayerPlay({ sessionData, teamName, db, onLeave }) {
         )}
       </div>
 
-      {/* FOOTER KECIL DI BAWAH */}
       <div className={`flex justify-between items-center shrink-0 ${isFullscreen ? 'bg-[#0F172A]' : 'bg-[#38BDF8] border-2 md:border-4 border-[#7DD3FC]'} text-white rounded-xl md:rounded-2xl shadow-[0_3px_0_0_#0284C7] p-2 md:p-3 transition-colors`}>
         <div className="flex items-center gap-2">
           <p className={`text-[9px] md:text-[10px] font-black uppercase tracking-wider ${isFullscreen ? 'text-slate-400' : 'text-[#BAE6FD]'}`}>Tim:</p>
